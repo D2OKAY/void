@@ -362,7 +362,7 @@ export const modelSelectionsEqual = (m1: ModelSelection, m2: ModelSelection) => 
 }
 
 // this is a state
-export const featureNames = ['Chat', 'Ctrl+K', 'Autocomplete', 'Apply', 'SCM'] as const
+export const featureNames = ['Chat', 'Ctrl+K', 'Autocomplete', 'Apply', 'SCM', 'HybridPlanner', 'HybridCoder'] as const
 export type ModelSelectionOfFeature = Record<(typeof featureNames)[number], ModelSelection | null>
 export type FeatureName = keyof ModelSelectionOfFeature
 
@@ -380,6 +380,11 @@ export const displayInfoOfFeatureName = (featureName: FeatureName) => {
 	// source control:
 	else if (featureName === 'SCM')
 		return 'Commit Message Generator'
+	// hybrid agent:
+	else if (featureName === 'HybridPlanner')
+		return 'Hybrid Planner'
+	else if (featureName === 'HybridCoder')
+		return 'Hybrid Coder'
 	else
 		throw new Error(`Feature Name ${featureName} not allowed`)
 }
@@ -435,7 +440,7 @@ export const isFeatureNameDisabled = (featureName: FeatureName, settingsState: V
 
 
 
-export type ChatMode = 'agent' | 'gather' | 'normal'
+export type ChatMode = 'agent' | 'gather' | 'normal' | 'hybrid'
 
 
 export type GlobalSettings = {
@@ -452,6 +457,8 @@ export type GlobalSettings = {
 	isOnboardingComplete: boolean;
 	disableSystemMessage: boolean;
 	autoAcceptLLMChanges: boolean;
+	hybridPlannerModel?: ModelSelection;
+	hybridCoderModel?: ModelSelection;
 }
 
 export const defaultGlobalSettings: GlobalSettings = {
@@ -468,6 +475,8 @@ export const defaultGlobalSettings: GlobalSettings = {
 	isOnboardingComplete: false,
 	disableSystemMessage: false,
 	autoAcceptLLMChanges: false,
+	hybridPlannerModel: undefined,
+	hybridCoderModel: undefined,
 }
 
 export type GlobalSettingName = keyof GlobalSettings
@@ -488,6 +497,7 @@ export type ModelSelectionOptions = {
 	reasoningEnabled?: boolean;
 	reasoningBudget?: number;
 	reasoningEffort?: string;
+	enableSmallModelOptimizations?: boolean; // undefined = auto, true = force on, false = force off
 }
 
 export type OptionsOfModelSelection = {

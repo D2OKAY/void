@@ -328,6 +328,34 @@ const SimpleModelSettingsDialog = ({
 				</div>
 
 
+				{/* Compact mode toggle */}
+				<div className="flex flex-col gap-2 mb-4">
+					<div className="flex items-center justify-between">
+						<div className="flex flex-col">
+							<span className="text-sm text-void-fg-2">Compact Mode</span>
+							<span className="text-xs text-void-fg-3">
+								Reduces prompts and context for small models. Auto-detected for models with &lt;16K context.
+							</span>
+						</div>
+						<div className="flex items-center gap-2">
+							<span className="text-xs text-void-fg-3">
+								{settingsState.optionsOfModelSelection['Chat'][providerName]?.[modelName]?.enableSmallModelOptimizations === undefined ? 'Auto' :
+								 settingsState.optionsOfModelSelection['Chat'][providerName]?.[modelName]?.enableSmallModelOptimizations ? 'On' : 'Off'}
+							</span>
+							<button
+								onClick={() => {
+									const currentVal = settingsState.optionsOfModelSelection['Chat'][providerName]?.[modelName]?.enableSmallModelOptimizations
+									const nextVal = currentVal === undefined ? false : currentVal === false ? true : undefined
+									settingsStateService.setOptionsOfModelSelection('Chat', providerName, modelName, { enableSmallModelOptimizations: nextVal })
+								}}
+								className="px-2 py-1 rounded text-xs bg-void-bg-2 hover:bg-void-bg-3 border border-void-border-2"
+							>
+								Toggle
+							</button>
+						</div>
+					</div>
+				</div>
+
 				{/* override toggle */}
 				<div className="flex items-center gap-2 mb-4">
 					<VoidSwitch size='xs' value={overrideEnabled} onChange={setOverrideEnabled} />
@@ -1290,6 +1318,66 @@ export const Settings = () => {
 													</div>
 												</div>
 
+											</div>
+										</ErrorBoundary>
+
+										{/* Hybrid Agent */}
+										<ErrorBoundary>
+											<div className='w-full'>
+												<h4 className={`text-base`}>Hybrid Agent</h4>
+												<div className='text-sm text-void-fg-3 mt-1'>Configure models for the Hybrid Agent mode. The Planner AI (cloud) handles high-level planning and decision-making, while the Coder AI (local) implements the actual code.</div>
+
+												<div className='my-2'>
+													{/* Planner Model Label */}
+													<div className='text-xs text-void-fg-3 mb-1 mt-3'>Planner Model (Cloud AI for planning):</div>
+													<div className='my-2'>
+														{settingsState._modelOptions.length > 0 ? (
+															<VoidCustomDropdownBox
+																options={settingsState._modelOptions}
+																selectedOption={settingsState._modelOptions.find(opt => 
+																	settingsState.modelSelectionOfFeature.HybridPlanner &&
+																	opt.selection.providerName === settingsState.modelSelectionOfFeature.HybridPlanner.providerName &&
+																	opt.selection.modelName === settingsState.modelSelectionOfFeature.HybridPlanner.modelName
+																)}
+																onChangeOption={(newOption) => {
+																	voidSettingsService.setModelSelectionOfFeature('HybridPlanner', newOption.selection);
+																}}
+																getOptionDisplayName={(opt) => opt.name}
+																getOptionDropdownName={(opt) => opt.selection.modelName}
+																getOptionDropdownDetail={(opt) => opt.selection.providerName}
+																getOptionsEqual={(a, b) => a.selection.providerName === b.selection.providerName && a.selection.modelName === b.selection.modelName}
+																className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-1 rounded p-1 px-2'
+															/>
+														) : (
+															<WarningBox text="Please add a model in the Models section first" />
+														)}
+													</div>
+
+													{/* Coder Model Label */}
+													<div className='text-xs text-void-fg-3 mb-1 mt-3'>Coder Model (Local AI for implementation):</div>
+													<div className='my-2'>
+														{settingsState._modelOptions.length > 0 ? (
+															<VoidCustomDropdownBox
+																options={settingsState._modelOptions}
+																selectedOption={settingsState._modelOptions.find(opt => 
+																	settingsState.modelSelectionOfFeature.HybridCoder &&
+																	opt.selection.providerName === settingsState.modelSelectionOfFeature.HybridCoder.providerName &&
+																	opt.selection.modelName === settingsState.modelSelectionOfFeature.HybridCoder.modelName
+																)}
+																onChangeOption={(newOption) => {
+																	voidSettingsService.setModelSelectionOfFeature('HybridCoder', newOption.selection);
+																}}
+																getOptionDisplayName={(opt) => opt.name}
+																getOptionDropdownName={(opt) => opt.selection.modelName}
+																getOptionDropdownDetail={(opt) => opt.selection.providerName}
+																getOptionsEqual={(a, b) => a.selection.providerName === b.selection.providerName && a.selection.modelName === b.selection.modelName}
+																className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-1 rounded p-1 px-2'
+															/>
+														) : (
+															<WarningBox text="Please add a model in the Models section first" />
+														)}
+													</div>
+												</div>
 											</div>
 										</ErrorBoundary>
 

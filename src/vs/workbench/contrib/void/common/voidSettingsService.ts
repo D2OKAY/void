@@ -117,6 +117,8 @@ export const modelFilterOfFeatureName: {
 	'Ctrl+K': { filter: o => true, emptyMessage: null, },
 	'Apply': { filter: o => true, emptyMessage: null, },
 	'SCM': { filter: o => true, emptyMessage: null, },
+	'HybridPlanner': { filter: o => true, emptyMessage: null, },
+	'HybridCoder': { filter: o => true, emptyMessage: null, },
 }
 
 
@@ -185,7 +187,7 @@ const _validatedModelState = (state: Omit<VoidSettingsState, '_modelOptions'>): 
 		const modelOptionsForThisFeature = newModelOptions.filter((o) => filter(o.selection, filterOpts))
 
 		const modelSelectionAtFeature = newModelSelectionOfFeature[featureName]
-		const selnIdx = modelSelectionAtFeature === null ? -1 : modelOptionsForThisFeature.findIndex(m => modelSelectionsEqual(m.selection, modelSelectionAtFeature))
+		const selnIdx = (!modelSelectionAtFeature) ? -1 : modelOptionsForThisFeature.findIndex(m => modelSelectionsEqual(m.selection, modelSelectionAtFeature))
 
 		if (selnIdx !== -1) continue // no longer in list, so update to 1st in list or null
 
@@ -195,6 +197,19 @@ const _validatedModelState = (state: Omit<VoidSettingsState, '_modelOptions'>): 
 		}
 	}
 
+	// Sync globalSettings hybrid models to feature selections
+	if (state.globalSettings.hybridPlannerModel) {
+		newModelSelectionOfFeature = {
+			...newModelSelectionOfFeature,
+			'HybridPlanner': state.globalSettings.hybridPlannerModel
+		}
+	}
+	if (state.globalSettings.hybridCoderModel) {
+		newModelSelectionOfFeature = {
+			...newModelSelectionOfFeature,
+			'HybridCoder': state.globalSettings.hybridCoderModel
+		}
+	}
 
 	const newState = {
 		...state,
@@ -214,9 +229,9 @@ const _validatedModelState = (state: Omit<VoidSettingsState, '_modelOptions'>): 
 const defaultState = () => {
 	const d: VoidSettingsState = {
 		settingsOfProvider: deepClone(defaultSettingsOfProvider),
-		modelSelectionOfFeature: { 'Chat': null, 'Ctrl+K': null, 'Autocomplete': null, 'Apply': null, 'SCM': null },
+		modelSelectionOfFeature: { 'Chat': null, 'Ctrl+K': null, 'Autocomplete': null, 'Apply': null, 'SCM': null, 'HybridPlanner': null, 'HybridCoder': null },
 		globalSettings: deepClone(defaultGlobalSettings),
-		optionsOfModelSelection: { 'Chat': {}, 'Ctrl+K': {}, 'Autocomplete': {}, 'Apply': {}, 'SCM': {} },
+		optionsOfModelSelection: { 'Chat': {}, 'Ctrl+K': {}, 'Autocomplete': {}, 'Apply': {}, 'SCM': {}, 'HybridPlanner': {}, 'HybridCoder': {} },
 		overridesOfModel: deepClone(defaultOverridesOfModel),
 		_modelOptions: [], // computed later
 		mcpUserStateOfName: {},
@@ -429,11 +444,30 @@ class VoidSettingsService extends Disposable implements IVoidSettingsService {
 
 
 	setModelSelectionOfFeature: SetModelSelectionOfFeatureFn = async (featureName, newVal) => {
-		const newState: VoidSettingsState = {
+		let newState: VoidSettingsState = {
 			...this.state,
 			modelSelectionOfFeature: {
 				...this.state.modelSelectionOfFeature,
 				[featureName]: newVal
+			}
+		}
+
+		// Sync hybrid agent model selections to globalSettings
+		if (featureName === 'HybridPlanner') {
+			newState = {
+				...newState,
+				globalSettings: {
+					...newState.globalSettings,
+					hybridPlannerModel: newVal ?? undefined
+				}
+			}
+		} else if (featureName === 'HybridCoder') {
+			newState = {
+				...newState,
+				globalSettings: {
+					...newState.globalSettings,
+					hybridCoderModel: newVal ?? undefined
+				}
 			}
 		}
 

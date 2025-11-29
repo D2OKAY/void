@@ -10,6 +10,7 @@ import { IEditCodeService } from './editCodeServiceInterface.js'
 import { ITerminalToolService } from './terminalToolService.js'
 import { LintErrorItem, BuiltinToolCallParams, BuiltinToolResultType, BuiltinToolName } from '../common/toolsServiceTypes.js'
 import { IVoidModelService } from '../common/voidModelService.js'
+import { IVoidBrainService } from '../common/voidBrainService.js'
 import { EndOfLinePreference } from '../../../../editor/common/model.js'
 import { IVoidCommandBarService } from './voidCommandBarService.js'
 import { computeDirectoryTree1Deep, IDirectoryStrService, stringifyDirectoryTree1Deep } from '../common/directoryStrService.js'
@@ -153,6 +154,7 @@ export class ToolsService implements IToolsService {
 		@IDirectoryStrService private readonly directoryStrService: IDirectoryStrService,
 		@IMarkerService private readonly markerService: IMarkerService,
 		@IVoidSettingsService private readonly voidSettingsService: IVoidSettingsService,
+		@IVoidBrainService private readonly voidBrainService: IVoidBrainService,
 	) {
 		const queryBuilder = instantiationService.createInstance(QueryBuilder);
 
@@ -288,6 +290,60 @@ export class ToolsService implements IToolsService {
 				const { persistent_terminal_id: terminalIdUnknown } = params;
 				const persistentTerminalId = validateProposedTerminalId(terminalIdUnknown);
 				return { persistentTerminalId };
+			},
+
+			// --- brain tools ---
+			add_lesson: (params: RawToolParamsObj) => {
+				const { title, description, category, priority, is_global_candidate: isGlobalCandidateUnknown, context } = params;
+				const isGlobalCandidate = validateBoolean(isGlobalCandidateUnknown, { default: false });
+				
+				if (typeof title !== 'string' || !title) throw new Error('title must be a non-empty string');
+				if (typeof description !== 'string' || !description) throw new Error('description must be a non-empty string');
+				if (typeof category !== 'string' || !category) throw new Error('category must be a non-empty string');
+				if (!['low', 'medium', 'high'].includes(priority as string)) throw new Error('priority must be low, medium, or high');
+				
+				return { 
+					title, 
+					description, 
+					category, 
+					priority: priority as ('low' | 'medium' | 'high'), 
+					isGlobalCandidate,
+					context: context ? String(context) : undefined
+				};
+			},
+
+			search_lessons: (params: RawToolParamsObj) => {
+				const { query, scope } = params;
+				if (typeof query !== 'string') throw new Error('query must be a string');
+				if (!['project', 'global', 'both'].includes(scope as string)) throw new Error('scope must be project, global, or both');
+				return { query, scope: scope as ('project' | 'global' | 'both') };
+			},
+
+			update_lesson: (params: RawToolParamsObj) => {
+				const { lesson_id: lessonId, updates, scope } = params;
+				if (typeof lessonId !== 'string') throw new Error('lesson_id must be a string');
+				if (typeof updates !== 'object' || updates === null) throw new Error('updates must be an object');
+				if (!['project', 'global'].includes(scope as string)) throw new Error('scope must be project or global');
+				return { lessonId, updates: updates as object, scope: scope as ('project' | 'global') };
+			},
+
+			delete_lesson: (params: RawToolParamsObj) => {
+				const { lesson_id: lessonId, scope } = params;
+				if (typeof lessonId !== 'string') throw new Error('lesson_id must be a string');
+				if (!['project', 'global'].includes(scope as string)) throw new Error('scope must be project or global');
+				return { lessonId, scope: scope as ('project' | 'global') };
+			},
+
+			promote_to_global: (params: RawToolParamsObj) => {
+				const { lesson_ids: lessonIds } = params;
+				const ids = lessonIds ? (Array.isArray(lessonIds) ? lessonIds as string[] : []) : undefined;
+				return { lessonIds: ids };
+			},
+
+			cleanup_brain: (params: RawToolParamsObj) => {
+				const { scope } = params;
+				if (!['project', 'global', 'both'].includes(scope as string)) throw new Error('scope must be project, global, or both');
+				return { scope: scope as ('project' | 'global' | 'both') };
 			},
 
 		}
@@ -461,6 +517,39 @@ export class ToolsService implements IToolsService {
 				await this.terminalToolService.killPersistentTerminal(persistentTerminalId)
 				return { result: {} }
 			},
+
+			// --- brain tools ---
+			add_lesson: async (params) => {
+				const lessonId = await this.voidBrainService.addLesson(params as any, 'project');
+				return { result: { lessonId } };
+			},
+
+			search_lessons: async ({ query, scope }) => {
+				const lessons = this.voidBrainService.searchLessons(query, scope as ('project' | 'global' | 'both'));
+				return { result: { lessons } };
+			},
+
+			update_lesson: async ({ lessonId, updates, scope }) => {
+				await this.voidBrainService.updateLesson(lessonId, updates as any, scope as ('project' | 'global'));
+				return { result: {} };
+			},
+
+			delete_lesson: async ({ lessonId, scope }) => {
+				await this.voidBrainService.deleteLesson(lessonId, scope as ('project' | 'global'));
+				return { result: {} };
+			},
+
+			promote_to_global: async ({ lessonIds }) => {
+				await this.voidBrainService.promoteToGlobal(lessonIds || []);
+				const promoted = lessonIds?.length || 0;
+				return { result: { promoted } };
+			},
+
+			cleanup_brain: async ({ scope }) => {
+				const conflicts = this.voidBrainService.detectConflicts(scope as ('project' | 'global' | 'both'));
+				await this.voidBrainService.markCleanup(scope === 'both' ? 'project' : scope as ('project' | 'global'));
+				return { result: { conflicts } };
+			},
 		}
 
 
@@ -563,6 +652,43 @@ export class ToolsService implements IToolsService {
 			},
 			kill_persistent_terminal: (params, _result) => {
 				return `Successfully closed terminal "${params.persistentTerminalId}".`;
+			},
+
+			// --- brain tools ---
+			add_lesson: (params, result) => {
+				return `Successfully added lesson "${params.title}" to the brain with ID: ${result.lessonId}`;
+			},
+
+			search_lessons: (params, result) => {
+				if (result.lessons.length === 0) {
+					return `No lessons found matching query: "${params.query}"`;
+				}
+				const lessonsStr = result.lessons.map(l => 
+					`- [${l.id}] ${l.title} (${l.category}, ${l.priority}): ${l.description}`
+				).join('\n');
+				return `Found ${result.lessons.length} lesson(s):\n${lessonsStr}`;
+			},
+
+			update_lesson: (params, _result) => {
+				return `Successfully updated lesson ${params.lessonId}`;
+			},
+
+			delete_lesson: (params, _result) => {
+				return `Successfully deleted lesson ${params.lessonId} from ${params.scope} brain`;
+			},
+
+			promote_to_global: (params, result) => {
+				return `Successfully promoted ${result.promoted} lesson(s) to global brain`;
+			},
+
+			cleanup_brain: (params, result) => {
+				if (result.conflicts.length === 0) {
+					return `No conflicts found in ${params.scope} brain`;
+				}
+				const conflictsStr = result.conflicts.map(c => 
+					`- "${c.lesson1.title}" vs "${c.lesson2.title}": ${c.reason}`
+				).join('\n');
+				return `Found ${result.conflicts.length} conflict(s) in ${params.scope} brain:\n${conflictsStr}`;
 			},
 		}
 

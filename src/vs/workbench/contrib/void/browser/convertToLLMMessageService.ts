@@ -6,7 +6,7 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ChatMessage } from '../common/chatThreadServiceTypes.js';
-import { getIsReasoningEnabledState, getReservedOutputTokenSpace, getModelCapabilities } from '../common/modelCapabilities.js';
+import { getIsReasoningEnabledState, getReservedOutputTokenSpace, getModelCapabilities, getSmallModelProfile } from '../common/modelCapabilities.js';
 import { reParsedToolXMLString, chat_systemMessage } from '../common/prompt/prompts.js';
 import { AnthropicLLMChatMessage, AnthropicReasoning, GeminiLLMChatMessage, LLMChatMessage, LLMFIMMessage, OpenAILLMChatMessage, RawToolParamsObj } from '../common/sendLLMMessageTypes.js';
 import { IVoidSettingsService } from '../common/voidSettingsService.js';
@@ -14,6 +14,7 @@ import { ChatMode, FeatureName, ModelSelection, ProviderName } from '../common/v
 import { IDirectoryStrService } from '../common/directoryStrService.js';
 import { ITerminalToolService } from './terminalToolService.js';
 import { IVoidModelService } from '../common/voidModelService.js';
+import { IVoidBrainService } from '../common/voidBrainService.js';
 import { URI } from '../../../../base/common/uri.js';
 import { EndOfLinePreference } from '../../../../editor/common/model.js';
 import { ToolName } from '../common/toolsServiceTypes.js';
@@ -250,6 +251,7 @@ const prepareOpenAIOrAnthropicMessages = ({
 	supportsAnthropicReasoning,
 	contextWindow,
 	reservedOutputTokenSpace,
+	outputTokenReservationRatio = 0.5,
 }: {
 	messages: SimpleLLMMessage[],
 	systemMessage: string,
@@ -259,11 +261,12 @@ const prepareOpenAIOrAnthropicMessages = ({
 	supportsAnthropicReasoning: boolean,
 	contextWindow: number,
 	reservedOutputTokenSpace: number | null | undefined,
+	outputTokenReservationRatio?: number,
 }): { messages: AnthropicOrOpenAILLMMessage[], separateSystemMessage: string | undefined } => {
 
 	reservedOutputTokenSpace = Math.max(
-		contextWindow * 1 / 2, // reserve at least 1/4 of the token window length
-		reservedOutputTokenSpace ?? 4_096 // defaults to 4096
+		contextWindow * outputTokenReservationRatio,
+		reservedOutputTokenSpace ?? 2_000
 	)
 	let messages: (SimpleLLMMessage | { role: 'system', content: string })[] = deepClone(messages_)
 
@@ -500,7 +503,8 @@ const prepareMessages = (params: {
 	supportsAnthropicReasoning: boolean,
 	contextWindow: number,
 	reservedOutputTokenSpace: number | null | undefined,
-	providerName: ProviderName
+	providerName: ProviderName,
+	outputTokenReservationRatio?: number,
 }): { messages: LLMChatMessage[], separateSystemMessage: string | undefined } => {
 
 	const specialFormat = params.specialToolFormat // this is just for ts stupidness
@@ -541,6 +545,7 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 		@IVoidSettingsService private readonly voidSettingsService: IVoidSettingsService,
 		@IVoidModelService private readonly voidModelService: IVoidModelService,
 		@IMCPService private readonly mcpService: IMCPService,
+		@IVoidBrainService private readonly voidBrainService: IVoidBrainService,
 	) {
 		super()
 	}
@@ -564,14 +569,48 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 	}
 
 	// Get combined AI instructions from settings and .voidrules files
-	private _getCombinedAIInstructions(): string {
+	private _getCombinedAIInstructions(context?: { fileUri?: URI; language?: string }): string {
 		const globalAIInstructions = this.voidSettingsService.state.globalSettings.aiInstructions;
 		const voidRulesFileContent = this._getVoidRulesFileContents();
 
 		const ans: string[] = []
 		if (globalAIInstructions) ans.push(globalAIInstructions)
 		if (voidRulesFileContent) ans.push(voidRulesFileContent)
+
+		// Add brain lessons
+		try {
+			const maxChars = this._calculateBrainTokenBudget();
+			const relevantLessons = this.voidBrainService.getRelevantLessons(context || {});
+			const formattedLessons = this.voidBrainService.formatLessonsForPrompt(relevantLessons, maxChars);
+
+			if (formattedLessons) {
+				ans.push(`LEARNED LESSONS (from brain):\n${formattedLessons}`);
+			}
+
+			// Check if should prompt for global sync
+			if (this.voidBrainService.shouldPromptGlobalSync()) {
+				ans.push(`\nNOTE: It's been over a week since global lessons were updated. Consider asking user if they want to review project lessons for global promotion.`);
+			}
+		} catch (e) {
+			// Brain service might not be ready yet, silently skip
+		}
+
 		return ans.join('\n\n')
+	}
+
+	// Calculate dynamic token budget for brain lessons
+	private _calculateBrainTokenBudget(): number {
+		const modelSelection = this.voidSettingsService.state.modelSelectionOfFeature['Chat']
+		if (!modelSelection) return 5_000
+		
+		const { overridesOfModel } = this.voidSettingsService.state
+		const { providerName, modelName } = modelSelection
+		const { contextWindow } = getModelCapabilities(providerName, modelName, overridesOfModel)
+		const modelOptions = this.voidSettingsService.state.optionsOfModelSelection['Chat'][providerName]?.[modelName]
+		
+		const profile = getSmallModelProfile(providerName, modelName, contextWindow, modelOptions?.enableSmallModelOptimizations)
+		
+		return profile.maxBrainChars
 	}
 
 
@@ -582,10 +621,31 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 		const openedURIs = this.modelService.getModels().filter(m => m.isAttachedToEditor()).map(m => m.uri.fsPath) || [];
 		const activeURI = this.editorService.activeEditor?.resource?.fsPath;
 
+		// Get current model selection to determine optimization profile
+		const modelSelection = this.voidSettingsService.state.modelSelectionOfFeature['Chat']
+		const { overridesOfModel } = this.voidSettingsService.state
+		
+		// Determine small model profile
+		let useCompact = false
+		let maxTools: number | undefined = undefined
+		let maxChars = 10_000 // default
+		
+		if (modelSelection) {
+			const { providerName, modelName } = modelSelection
+			const { contextWindow } = getModelCapabilities(providerName, modelName, overridesOfModel)
+			const modelOptions = this.voidSettingsService.state.optionsOfModelSelection['Chat'][providerName]?.[modelName]
+			const profile = getSmallModelProfile(providerName, modelName, contextWindow, modelOptions?.enableSmallModelOptimizations)
+			
+			useCompact = profile.useCompactPrompts
+			maxTools = profile.maxToolsInPrompt
+			maxChars = profile.maxDirStrChars
+		}
+
 		const directoryStr = await this.directoryStrService.getAllDirectoriesStr({
 			cutOffMessage: chatMode === 'agent' || chatMode === 'gather' ?
 				`...Directories string cut off, use tools to read more...`
-				: `...Directories string cut off, ask user for more if necessary...`
+				: `...Directories string cut off, ask user for more if necessary...`,
+			maxChars
 		})
 
 		const includeXMLToolDefinitions = !specialToolFormat
@@ -593,7 +653,18 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 		const mcpTools = this.mcpService.getMCPTools()
 
 		const persistentTerminalIDs = this.terminalToolService.listPersistentTerminalIds()
-		const systemMessage = chat_systemMessage({ workspaceFolders, openedURIs, directoryStr, activeURI, persistentTerminalIDs, chatMode, mcpTools, includeXMLToolDefinitions })
+		const systemMessage = chat_systemMessage({ 
+			workspaceFolders, 
+			openedURIs, 
+			directoryStr, 
+			activeURI, 
+			persistentTerminalIDs, 
+			chatMode, 
+			mcpTools, 
+			includeXMLToolDefinitions,
+			useCompact,
+			maxTools
+		})
 		return systemMessage
 	}
 
@@ -653,6 +724,10 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 
 		const isReasoningEnabled = getIsReasoningEnabledState(featureName, providerName, modelName, modelSelectionOptions, overridesOfModel)
 		const reservedOutputTokenSpace = getReservedOutputTokenSpace(providerName, modelName, { isReasoningEnabled, overridesOfModel })
+		
+		// Get small model profile for output reservation
+		const profile = getSmallModelProfile(providerName, modelName, contextWindow, modelSelectionOptions?.enableSmallModelOptimizations)
+		const outputTokenReservationRatio = profile.outputTokenReservationRatio
 
 		const { messages, separateSystemMessage } = prepareMessages({
 			messages: simpleMessages,
@@ -664,6 +739,7 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 			contextWindow,
 			reservedOutputTokenSpace,
 			providerName,
+			outputTokenReservationRatio,
 		})
 		return { messages, separateSystemMessage };
 	}
@@ -690,6 +766,10 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 		const isReasoningEnabled = getIsReasoningEnabledState('Chat', providerName, modelName, modelSelectionOptions, overridesOfModel)
 		const reservedOutputTokenSpace = getReservedOutputTokenSpace(providerName, modelName, { isReasoningEnabled, overridesOfModel })
 		const llmMessages = this._chatMessagesToSimpleMessages(chatMessages)
+		
+		// Get small model profile for output reservation
+		const profile = getSmallModelProfile(providerName, modelName, contextWindow, modelSelectionOptions?.enableSmallModelOptimizations)
+		const outputTokenReservationRatio = profile.outputTokenReservationRatio
 
 		const { messages, separateSystemMessage } = prepareMessages({
 			messages: llmMessages,
@@ -701,6 +781,7 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 			contextWindow,
 			reservedOutputTokenSpace,
 			providerName,
+			outputTokenReservationRatio,
 		})
 		return { messages, separateSystemMessage };
 	}

@@ -33,6 +33,14 @@ import './voidUpdateActions.js'
 
 import './convertToLLMMessageWorkbenchContrib.js'
 
+// brain
+import './voidBrainWorkbenchContrib.js'
+
+// hybrid agent
+import './hybridPlanService.js'
+import './hybridAgentService.js'
+import './hybridPlanWorkbenchContrib.js'
+
 // tools
 import './toolsService.js'
 import './terminalToolService.js'

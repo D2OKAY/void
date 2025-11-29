@@ -16,8 +16,8 @@ import { ChatMode } from '../voidSettingsTypes.js';
 export const tripleTick = ['```', '```']
 
 // Maximum limits for directory structure information
-export const MAX_DIRSTR_CHARS_TOTAL_BEGINNING = 20_000
-export const MAX_DIRSTR_CHARS_TOTAL_TOOL = 20_000
+export const MAX_DIRSTR_CHARS_TOTAL_BEGINNING = 10_000
+export const MAX_DIRSTR_CHARS_TOTAL_TOOL = 10_000
 export const MAX_DIRSTR_RESULTS_TOTAL_BEGINNING = 100
 export const MAX_DIRSTR_RESULTS_TOTAL_TOOL = 100
 
@@ -336,6 +336,65 @@ export const builtinTools: {
 		name: 'kill_persistent_terminal',
 		description: `Interrupts and closes a persistent terminal that you opened with open_persistent_terminal.`,
 		params: { persistent_terminal_id: { description: `The ID of the persistent terminal.` } }
+	},
+
+	// --- brain tools ---
+
+	add_lesson: {
+		name: 'add_lesson',
+		description: `Add a new lesson to the brain for future reference. Use this when the user explicitly asks you to remember something, or when they correct a mistake you made. Always ask for confirmation with: "Should I remember this: [brief lesson]?"`,
+		params: {
+			title: { description: 'Short, concise title for the lesson (e.g., "Never use any type")' },
+			description: { description: 'Detailed lesson content explaining what to do or avoid' },
+			category: { description: 'Category for the lesson (e.g., typescript, security, testing, api-design). Create new categories as needed.' },
+			priority: { description: 'Priority level: low, medium, or high. Use high for critical lessons that should always be followed.' },
+			is_global_candidate: { description: 'Whether this lesson might be useful across all projects (not just this one)' },
+			context: { description: 'Optional. Additional context or example demonstrating the lesson' }
+		}
+	},
+
+	search_lessons: {
+		name: 'search_lessons',
+		description: `Search for relevant lessons in the brain. Use this when you need to find specific guidance or check if a lesson already exists.`,
+		params: {
+			query: { description: 'Search terms or keywords to find lessons' },
+			scope: { description: 'Search scope: "project" (current project only), "global" (all projects), or "both"' }
+		}
+	},
+
+	update_lesson: {
+		name: 'update_lesson',
+		description: `Update an existing lesson in the brain. Use this to refine, correct, or add context to a lesson.`,
+		params: {
+			lesson_id: { description: 'The ID of the lesson to update' },
+			updates: { description: 'Object with fields to update (e.g., {description: "new description", priority: "high"})' },
+			scope: { description: 'Scope where the lesson exists: "project" or "global"' }
+		}
+	},
+
+	delete_lesson: {
+		name: 'delete_lesson',
+		description: `Delete a lesson from the brain. Use when a lesson is no longer relevant or has been superseded.`,
+		params: {
+			lesson_id: { description: 'The ID of the lesson to delete' },
+			scope: { description: 'Scope where the lesson exists: "project" or "global"' }
+		}
+	},
+
+	promote_to_global: {
+		name: 'promote_to_global',
+		description: `Promote project-specific lessons to global lessons that apply to all projects. If no lesson IDs provided, promotes all lessons marked as global candidates.`,
+		params: {
+			lesson_ids: { description: 'Optional. Array of specific lesson IDs to promote. Leave empty to promote all global candidates.' }
+		}
+	},
+
+	cleanup_brain: {
+		name: 'cleanup_brain',
+		description: `Analyze the brain for duplicate lessons, contradictions, and consolidation opportunities. Returns a list of conflicts that need user resolution.`,
+		params: {
+			scope: { description: 'Scope to analyze: "project", "global", or "both"' }
+		}
 	}
 
 
@@ -360,10 +419,28 @@ export const isABuiltinToolName = (toolName: string): toolName is BuiltinToolNam
 
 export const availableTools = (chatMode: ChatMode | null, mcpTools: InternalToolInfo[] | undefined) => {
 
-	const builtinToolNames: BuiltinToolName[] | undefined = chatMode === 'normal' ? undefined
-		: chatMode === 'gather' ? (Object.keys(builtinTools) as BuiltinToolName[]).filter(toolName => !(toolName in approvalTypeOfBuiltinToolName))
-			: chatMode === 'agent' ? Object.keys(builtinTools) as BuiltinToolName[]
-				: undefined
+	// Define brain tool categories
+	const readOnlyBrainTools: BuiltinToolName[] = ['search_lessons']
+	const writeBrainTools: BuiltinToolName[] = ['add_lesson', 'update_lesson', 'delete_lesson', 'promote_to_global', 'cleanup_brain']
+	const allBrainTools = [...readOnlyBrainTools, ...writeBrainTools]
+
+	let builtinToolNames: BuiltinToolName[] | undefined
+
+	if (chatMode === 'normal') {
+		// Normal mode: only read-only brain tools
+		builtinToolNames = readOnlyBrainTools
+	} else if (chatMode === 'gather') {
+		// Gather mode: non-approval tools (excluding brain tools, which we add separately)
+		const gatherTools = (Object.keys(builtinTools) as BuiltinToolName[]).filter(toolName => 
+			!(toolName in approvalTypeOfBuiltinToolName) && !allBrainTools.includes(toolName)
+		)
+		builtinToolNames = [...gatherTools, ...readOnlyBrainTools, ...writeBrainTools]
+	} else if (chatMode === 'agent') {
+		// Agent mode: all tools including brain tools (already in builtinTools)
+		builtinToolNames = Object.keys(builtinTools) as BuiltinToolName[]
+	} else {
+		builtinToolNames = undefined
+	}
 
 	const effectiveBuiltinTools = builtinToolNames?.map(toolName => builtinTools[toolName]) ?? undefined
 	const effectiveMCPTools = chatMode === 'agent' ? mcpTools : undefined
@@ -399,9 +476,24 @@ export const reParsedToolXMLString = (toolName: ToolName, toolParams: RawToolPar
 
 /* We expect tools to come at the end - not a hard limit, but that's just how we process them, and the flow makes more sense that way. */
 // - You are allowed to call multiple tools by specifying them consecutively. However, there should be NO text or writing between tool calls or after them.
-const systemToolsXMLPrompt = (chatMode: ChatMode, mcpTools: InternalToolInfo[] | undefined) => {
-	const tools = availableTools(chatMode, mcpTools)
+const systemToolsXMLPrompt = (
+	chatMode: ChatMode, 
+	mcpTools: InternalToolInfo[] | undefined,
+	maxTools?: number
+) => {
+	let tools = availableTools(chatMode, mcpTools)
 	if (!tools || tools.length === 0) return null
+	
+	// Limit tools for small models
+	if (maxTools && tools.length > maxTools) {
+		// Prioritize built-in tools over MCP tools
+		const builtinTools = tools.filter(t => !t.mcpServerName)
+		const mcpToolsFiltered = tools.filter(t => t.mcpServerName)
+		tools = [
+			...builtinTools.slice(0, Math.min(maxTools - 2, builtinTools.length)),
+			...mcpToolsFiltered.slice(0, 2)  // Keep at most 2 MCP tools
+		]
+	}
 
 	const toolXMLDefinitions = (`\
     Available tools:
@@ -425,7 +517,13 @@ const systemToolsXMLPrompt = (chatMode: ChatMode, mcpTools: InternalToolInfo[] |
 // ======================================================== chat (normal, gather, agent) ========================================================
 
 
-export const chat_systemMessage = ({ workspaceFolders, openedURIs, activeURI, persistentTerminalIDs, directoryStr, chatMode: mode, mcpTools, includeXMLToolDefinitions }: { workspaceFolders: string[], directoryStr: string, openedURIs: string[], activeURI: string | undefined, persistentTerminalIDs: string[], chatMode: ChatMode, mcpTools: InternalToolInfo[] | undefined, includeXMLToolDefinitions: boolean }) => {
+export const chat_systemMessage = ({ workspaceFolders, openedURIs, activeURI, persistentTerminalIDs, directoryStr, chatMode: mode, mcpTools, includeXMLToolDefinitions, useCompact = false, maxTools }: { workspaceFolders: string[], directoryStr: string, openedURIs: string[], activeURI: string | undefined, persistentTerminalIDs: string[], chatMode: ChatMode, mcpTools: InternalToolInfo[] | undefined, includeXMLToolDefinitions: boolean, useCompact?: boolean, maxTools?: number }) => {
+	if (useCompact) {
+		return chat_systemMessage_compact({ 
+			workspaceFolders, openedURIs, activeURI, persistentTerminalIDs, 
+			directoryStr, chatMode: mode, mcpTools, includeXMLToolDefinitions, maxTools 
+		})
+	}
 	const header = (`You are an expert coding ${mode === 'agent' ? 'agent' : 'assistant'} whose job is \
 ${mode === 'agent' ? `to help the user develop, run, and make changes to their codebase.`
 			: mode === 'gather' ? `to search, understand, and reference files in the user's codebase.`
@@ -433,6 +531,16 @@ ${mode === 'agent' ? `to help the user develop, run, and make changes to their c
 					: ''}
 You will be given instructions to follow from the user, and you may also be given a list of files that the user has specifically selected for context, \`SELECTIONS\`.
 Please assist the user with their query.`)
+
+	const brainGuidance = mode === 'gather' || mode === 'agent' ? (`
+
+LEARNING FROM EXPERIENCE:
+You have access to a "brain" system that stores lessons learned from past interactions. When you notice any of these situations, consider using the add_lesson tool:
+- The user explicitly corrects you or says you made a mistake
+- The user says phrases like "remember this", "add to brain", "lesson", "don't forget", "next time", "always", or "never"
+- The user provides important guidance about this project or their coding preferences
+
+Before adding a lesson, always ask for confirmation with: "Should I remember this: [brief lesson]?"`) : ''
 
 
 
@@ -459,7 +567,7 @@ ${directoryStr}
 </files_overview>`)
 
 
-	const toolDefinitions = includeXMLToolDefinitions ? systemToolsXMLPrompt(mode, mcpTools) : null
+	const toolDefinitions = includeXMLToolDefinitions ? systemToolsXMLPrompt(mode, mcpTools, maxTools) : null
 
 	const details: string[] = []
 
@@ -515,6 +623,7 @@ ${details.map((d, i) => `${i + 1}. ${d}`).join('\n\n')}`)
 	// return answer
 	const ansStrs: string[] = []
 	ansStrs.push(header)
+	if (brainGuidance) ansStrs.push(brainGuidance)
 	ansStrs.push(sysInfo)
 	if (toolDefinitions) ansStrs.push(toolDefinitions)
 	ansStrs.push(importantDetails)
@@ -527,6 +636,86 @@ ${details.map((d, i) => `${i + 1}. ${d}`).join('\n\n')}`)
 
 	return fullSystemMsgStr
 
+}
+
+// Compact system message for small models (moderate reduction ~40%)
+export const chat_systemMessage_compact = ({ 
+	workspaceFolders, openedURIs, activeURI, persistentTerminalIDs, 
+	directoryStr, chatMode: mode, mcpTools, includeXMLToolDefinitions,
+	maxTools 
+}: { 
+	workspaceFolders: string[], 
+	directoryStr: string, 
+	openedURIs: string[], 
+	activeURI: string | undefined, 
+	persistentTerminalIDs: string[], 
+	chatMode: ChatMode, 
+	mcpTools: InternalToolInfo[] | undefined, 
+	includeXMLToolDefinitions: boolean,
+	maxTools?: number
+}): string => {
+	
+	const header = `Expert coding ${mode === 'agent' ? 'agent' : 'assistant'} for ${
+		mode === 'agent' ? 'developing and modifying codebases' :
+		mode === 'gather' ? 'searching and understanding files' :
+		'coding assistance'
+	}.`
+	
+	const brainGuidance = mode === 'gather' || mode === 'agent' ? 
+		`\n\nLEARNING: Use add_lesson when user corrects you or says "remember", "add to brain", "lesson", etc. Ask first: "Should I remember: [brief lesson]?"` 
+		: ''
+	
+	const sysInfo = `System:
+<system_info>
+- ${os}
+- Workspace: ${workspaceFolders.join(', ') || 'NONE'}
+- Active: ${activeURI || 'none'}
+- Open: ${openedURIs.slice(0, 5).join(', ') || 'none'}${openedURIs.length > 5 ? `... +${openedURIs.length - 5} more` : ''}${
+		mode === 'agent' && persistentTerminalIDs.length ? `\n- Terminals: ${persistentTerminalIDs.join(', ')}` : ''
+	}
+</system_info>`
+	
+	const fsInfo = `Files:
+<files_overview>
+${directoryStr}
+</files_overview>`
+	
+	const toolDefinitions = includeXMLToolDefinitions ? systemToolsXMLPrompt(mode, mcpTools, maxTools) : null
+	
+	const details: string[] = []
+	details.push(`Never reject queries.`)
+	
+	if (mode === 'agent' || mode === 'gather') {
+		details.push(`Use tools only if helpful. No permission needed.`)
+		details.push(`One tool at a time. Describe what it does, not its name.`)
+	} else {
+		details.push(`Ask for context if needed. User can reference files with @.`)
+	}
+	
+	if (mode === 'agent') {
+		details.push(`Always use tools to implement changes.`)
+		details.push(`Gather context before making changes. Maximize certainty.`)
+	}
+	
+	if (mode === 'gather') {
+		details.push(`Use tools to gather information and context.`)
+	}
+	
+	details.push(`Code blocks: language, full path on line 1.`)
+	
+	if (mode === 'gather' || mode === 'normal') {
+		details.push(`Suggest edits in code blocks with "// ... existing ..." for context. Example:\n${chatSuggestionDiffExample}`)
+	}
+	
+	details.push(`Use markdown formatting. Today: ${new Date().toDateString()}.`)
+	
+	const importantDetails = `Rules:\n${details.map((d, i) => `${i + 1}. ${d}`).join('\n')}`
+	
+	return [header, brainGuidance, sysInfo, toolDefinitions, importantDetails, fsInfo]
+		.filter(Boolean)
+		.join('\n\n')
+		.trim()
+		.replace('\t', '  ')
 }
 
 
@@ -1067,3 +1256,92 @@ ${section4}
 
 ${log}`.trim()
 }
+
+// ======================================================== Hybrid Agent Mode ========================================================
+
+// Planner prompts
+export const hybrid_plannerDecision_systemMessage = `You are a planning AI that decides if a task needs detailed planning or can be executed directly.
+
+Respond ONLY with JSON:
+{
+  "needsPlan": boolean,
+  "reasoning": "one sentence explanation"
+}
+
+Tasks that NEED planning (complex):
+- Multi-file changes (3+ files)
+- Complex refactoring or new features
+- Database migrations or architecture changes
+- Project analysis (understanding entire codebases, explaining how systems work)
+- Research tasks (finding patterns across multiple files, code reviews)
+- Questions about project structure, architecture, or design decisions
+- Tasks involving multiple folders or the entire workspace
+
+Tasks that DON'T need planning (simple):
+- Single file edits or bug fixes in 1-2 files
+- Documentation updates in a single file
+- Simple variable renames
+- Quick questions with obvious answers (e.g., "what does this function do?" with specific file reference)
+- One-liner code explanations`;
+
+export const hybrid_createPlan_systemMessage = (context: string) => `You are a planning AI creating a structured execution plan.
+
+Context:
+${context}
+
+Output VALID JSON matching this structure:
+{
+  "title": "short task title",
+  "summary": "2-3 sentence overview",
+  "steps": [
+    {
+      "stepId": "unique-id",
+      "description": "clear, actionable step description",
+      "toolsToUse": ["edit_file", "run_command"],
+      "expectedFiles": ["path/to/file.ts"],
+      "riskLevel": "safe" | "moderate" | "risky",
+      "dependencies": ["other-step-id"]
+    }
+  ]
+}
+
+Risk levels:
+- safe: read-only, no side effects
+- moderate: file edits, reversible changes
+- risky: deletions, migrations, production changes`;
+
+export const hybrid_enhanceStep_systemMessage = (step: any, error: string, badCode?: string) => `The coder AI failed to execute this step. Provide MORE DETAILED instructions.
+
+Original step: ${step.description}
+Error: ${error}
+${badCode ? `Bad code produced:\n${badCode}` : ''}
+
+Provide enhanced instructions including:
+1. Specific code examples
+2. Edge cases to handle
+3. Exact tool usage syntax
+4. Common pitfalls to avoid
+
+Format: Plain text instructions (not JSON)`;
+
+// Coder prompts
+export const hybrid_coder_systemMessage = (step: any, planContext: string, retryContext?: string) => `You are a coding AI executing a single step from a plan.
+
+Plan context: ${planContext}
+
+Current step: ${step.description}
+Expected files: ${step.expectedFiles.join(', ')}
+${step.toolsToUse.length ? `Recommended tools: ${step.toolsToUse.join(', ')}` : ''}
+
+${retryContext ? `RETRY CONTEXT (previous attempt failed):\n${retryContext}\n` : ''}
+
+Guidelines:
+- Execute ONLY this step, nothing more
+- Use tools to make actual changes
+- If you lack context, request it immediately
+- If you're uncertain, explain why and ask for clarification
+
+DO NOT:
+- Make changes outside this step's scope
+- Guess implementation details
+- Skip error handling`;

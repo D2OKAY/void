@@ -13,6 +13,16 @@ import { VOID_OPEN_SETTINGS_ACTION_ID, VOID_TOGGLE_SETTINGS_ACTION_ID } from '..
 import { modelFilterOfFeatureName, ModelOption } from '../../../../../../../workbench/contrib/void/common/voidSettingsService.js'
 import { WarningBox } from './WarningBox.js'
 import ErrorBoundary from '../sidebar-tsx/ErrorBoundary.js'
+import { getModelCapabilities, getSmallModelProfile } from '../../../../../../../workbench/contrib/void/common/modelCapabilities.js'
+
+const SmallModelBadge = () => (
+	<span 
+		className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30"
+		title="Small model optimizations active: Compact prompts, reduced context"
+	>
+		COMPACT
+	</span>
+)
 
 const optionsEqual = (m1: ModelOption[], m2: ModelOption[]) => {
 	if (m1.length !== m2.length) return false
@@ -93,7 +103,21 @@ export const ModelDropdown = ({ featureName, className }: { featureName: Feature
 							: 'Provider required'
 		} />
 
+	// Check if small model
+	const modelSelection = settingsState.modelSelectionOfFeature[featureName]
+	let showCompactBadge = false
+	if (modelSelection) {
+		const { providerName, modelName } = modelSelection
+		const { contextWindow } = getModelCapabilities(providerName, modelName, settingsState.overridesOfModel)
+		const modelOptions = settingsState.optionsOfModelSelection[featureName][providerName]?.[modelName]
+		const profile = getSmallModelProfile(providerName, modelName, contextWindow, modelOptions?.enableSmallModelOptimizations)
+		showCompactBadge = profile.isSmallModel
+	}
+
 	return <ErrorBoundary>
+		<div className="flex items-center gap-1.5">
 		<MemoizedModelDropdown featureName={featureName} className={className} />
+			{showCompactBadge && <SmallModelBadge />}
+		</div>
 	</ErrorBoundary>
 }

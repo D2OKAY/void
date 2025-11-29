@@ -2,6 +2,7 @@ import { URI } from '../../../../base/common/uri.js'
 import { RawMCPToolCall } from './mcpServiceTypes.js';
 import { builtinTools } from './prompt/prompts.js';
 import { RawToolParamsObj } from './sendLLMMessageTypes.js';
+import { BrainLesson, LessonConflict } from './voidBrainTypes.js';
 
 
 
@@ -60,6 +61,13 @@ export type BuiltinToolCallParams = {
 	'open_persistent_terminal': { cwd: string | null },
 	'run_persistent_command': { command: string; persistentTerminalId: string },
 	'kill_persistent_terminal': { persistentTerminalId: string },
+	// --- brain tools ---
+	'add_lesson': { title: string, description: string, category: string, priority: string, isGlobalCandidate: boolean, context?: string },
+	'search_lessons': { query: string, scope: string },
+	'update_lesson': { lessonId: string, updates: object, scope: string },
+	'delete_lesson': { lessonId: string, scope: string },
+	'promote_to_global': { lessonIds?: string[] },
+	'cleanup_brain': { scope: string },
 }
 
 // RESULT OF TOOL CALL
@@ -81,6 +89,13 @@ export type BuiltinToolResultType = {
 	'run_persistent_command': { result: string; resolveReason: TerminalResolveReason; },
 	'open_persistent_terminal': { persistentTerminalId: string },
 	'kill_persistent_terminal': {},
+	// --- brain tools ---
+	'add_lesson': { lessonId: string },
+	'search_lessons': { lessons: BrainLesson[] },
+	'update_lesson': {},
+	'delete_lesson': {},
+	'promote_to_global': { promoted: number },
+	'cleanup_brain': { conflicts: LessonConflict[] },
 }
 
 

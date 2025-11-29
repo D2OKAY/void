@@ -91,12 +91,16 @@ export const defaultModelsOfProvider = {
 		'claude-3-5-haiku-latest',
 		'claude-3-opus-latest',
 	],
-	xAI: [ // https://docs.x.ai/docs/models?cluster=us-east-1
-		'grok-2',
-		'grok-3',
+	xAI: [ // https://docs.x.ai/docs/models - Updated 2025-11-29 (complete list)
+		'grok-4-1-fast-reasoning',
+		'grok-4-1-fast-non-reasoning',
+		'grok-4-fast-reasoning',
+		'grok-4-fast-non-reasoning',
+		'grok-code-fast-1',
+		'grok-4-0709',
 		'grok-3-mini',
-		'grok-3-fast',
-		'grok-3-mini-fast'
+		'grok-3',
+		'grok-2-vision-1212'
 	],
 	gemini: [ // https://ai.google.dev/gemini-api/docs/models/gemini
 		'gemini-2.5-pro-exp-03-25',
@@ -251,6 +255,64 @@ const defaultModelOptions = {
 	reasoningCapabilities: false,
 } as const satisfies VoidStaticModelInfo
 
+
+// ---------------- Small Model Detection & Profiles ----------------
+
+export const isSmallModel = (providerName: ProviderName, modelName: string, contextWindow: number): boolean => {
+	// Context window threshold
+	if (contextWindow < 16_000) return true
+
+	// Model name patterns for parameter size
+	const smallModelPatterns = [
+		/\b[0-9]\.?[0-9]?b\b/i,     // 1.5b, 3b, 7b, 8b
+		/\b[0-9]{1,2}b\b/i,          // 7b, 8b, 13b
+		/-small/i,                    // model-small
+		/-mini/i,                     // model-mini
+	]
+
+	return smallModelPatterns.some(pattern => pattern.test(modelName))
+}
+
+export type SmallModelProfile = {
+	isSmallModel: boolean
+	maxDirStrChars: number
+	maxBrainChars: number
+	outputTokenReservationRatio: number
+	useCompactPrompts: boolean
+	maxToolsInPrompt: number
+}
+
+export const getSmallModelProfile = (
+	providerName: ProviderName,
+	modelName: string,
+	contextWindow: number,
+	userOverride?: boolean
+): SmallModelProfile => {
+	const isSmall = userOverride ?? isSmallModel(providerName, modelName, contextWindow)
+
+	if (!isSmall) {
+		return {
+			isSmallModel: false,
+			maxDirStrChars: 10_000,
+			maxBrainChars: 5_000,
+			outputTokenReservationRatio: 0.5,
+			useCompactPrompts: false,
+			maxToolsInPrompt: 20
+		}
+	}
+
+	// Balanced profile for small models
+	return {
+		isSmallModel: true,
+		maxDirStrChars: 4_000,
+		maxBrainChars: 1_000,
+		outputTokenReservationRatio: 0.25,
+		useCompactPrompts: true,
+		maxToolsInPrompt: 8
+	}
+}
+
+
 // TODO!!! double check all context sizes below
 // TODO!!! add openrouter common models
 // TODO!!! allow user to modify capabilities and tell them if autodetected model or falling back
@@ -260,6 +322,12 @@ const openSourceModelOptions_assumingOAICompat = {
 		supportsSystemMessage: false,
 		reasoningCapabilities: { supportsReasoning: true, canTurnOffReasoning: false, canIOReasoning: true, openSourceThinkTags: ['<think>', '</think>'] },
 		contextWindow: 32_000, reservedOutputTokenSpace: 4_096,
+	},
+	'deepseek-r1:8b': {
+		supportsFIM: false,
+		supportsSystemMessage: false,
+		reasoningCapabilities: { supportsReasoning: true, canTurnOffReasoning: false, canIOReasoning: true, openSourceThinkTags: ['<think>', '</think>'] },
+		contextWindow: 8_000, reservedOutputTokenSpace: 2_500,
 	},
 	'deepseekCoderV3': {
 		supportsFIM: false,
@@ -419,8 +487,13 @@ const extensiveModelOptionsFallback: VoidStaticProviderInfo['modelOptionsFallbac
 	if (lower.includes('claude-3-5') || lower.includes('claude-3.5')) return toFallback(anthropicModelOptions, 'claude-3-5-sonnet-20241022')
 	if (lower.includes('claude')) return toFallback(anthropicModelOptions, 'claude-3-7-sonnet-20250219')
 
-	if (lower.includes('grok2') || lower.includes('grok2')) return toFallback(xAIModelOptions, 'grok-2')
-	if (lower.includes('grok')) return toFallback(xAIModelOptions, 'grok-3')
+	if (lower.includes('grok-4-1') || lower.includes('grok-4.1')) return toFallback(xAIModelOptions, 'grok-4-1-fast-reasoning')
+	if (lower.includes('grok-4') && lower.includes('code')) return toFallback(xAIModelOptions, 'grok-code-fast-1')
+	if (lower.includes('grok-4')) return toFallback(xAIModelOptions, 'grok-4-1-fast-reasoning')
+	if (lower.includes('grok-3-mini') || lower.includes('grok3mini')) return toFallback(xAIModelOptions, 'grok-3-mini')
+	if (lower.includes('grok-3') || lower.includes('grok3')) return toFallback(xAIModelOptions, 'grok-3')
+	if (lower.includes('grok-2') && lower.includes('vision')) return toFallback(xAIModelOptions, 'grok-2-vision-1212')
+	if (lower.includes('grok')) return toFallback(xAIModelOptions, 'grok-4-1-fast-reasoning')
 
 	if (lower.includes('deepseek-r1') || lower.includes('deepseek-reasoner')) return toFallback(openSourceModelOptions_assumingOAICompat, 'deepseekR1')
 	if (lower.includes('deepseek') && lower.includes('v2')) return toFallback(openSourceModelOptions_assumingOAICompat, 'deepseekCoderV2')
@@ -731,20 +804,67 @@ const openAISettings: VoidStaticProviderInfo = {
 
 // ---------------- XAI ----------------
 const xAIModelOptions = {
-	// https://docs.x.ai/docs/guides/reasoning#reasoning
-	// https://docs.x.ai/docs/models#models-and-pricing
-	'grok-2': {
-		contextWindow: 131_072,
+	// https://docs.x.ai/docs/models - Updated 2025-11-29 (complete list from official docs)
+	
+	// Grok 4.1 Fast - 2M context, optimized for agentic tool calling
+	'grok-4-1-fast-reasoning': {
+		contextWindow: 2_000_000, // 2M tokens, 4M tpm, 480 rpm
 		reservedOutputTokenSpace: null,
-		cost: { input: 2.00, output: 10.00 },
+		cost: { input: 0.20, output: 0.50 },
+		downloadable: false,
+		supportsFIM: false,
+		supportsSystemMessage: 'system-role',
+		specialToolFormat: 'openai-style',
+		reasoningCapabilities: { supportsReasoning: true, canTurnOffReasoning: false, canIOReasoning: false, reasoningSlider: { type: 'effort_slider', values: ['low', 'high'], default: 'low' } },
+	},
+	'grok-4-1-fast-non-reasoning': {
+		contextWindow: 2_000_000, // 2M tokens, 4M tpm, 480 rpm
+		reservedOutputTokenSpace: null,
+		cost: { input: 0.20, output: 0.50 },
 		downloadable: false,
 		supportsFIM: false,
 		supportsSystemMessage: 'system-role',
 		specialToolFormat: 'openai-style',
 		reasoningCapabilities: false,
 	},
-	'grok-3': {
-		contextWindow: 131_072,
+	
+	// Grok 4 Fast - 2M context
+	'grok-4-fast-reasoning': {
+		contextWindow: 2_000_000, // 2M tokens, 4M tpm, 480 rpm
+		reservedOutputTokenSpace: null,
+		cost: { input: 0.20, output: 0.50 },
+		downloadable: false,
+		supportsFIM: false,
+		supportsSystemMessage: 'system-role',
+		specialToolFormat: 'openai-style',
+		reasoningCapabilities: { supportsReasoning: true, canTurnOffReasoning: false, canIOReasoning: false, reasoningSlider: { type: 'effort_slider', values: ['low', 'high'], default: 'low' } },
+	},
+	'grok-4-fast-non-reasoning': {
+		contextWindow: 2_000_000, // 2M tokens, 4M tpm, 480 rpm
+		reservedOutputTokenSpace: null,
+		cost: { input: 0.20, output: 0.50 },
+		downloadable: false,
+		supportsFIM: false,
+		supportsSystemMessage: 'system-role',
+		specialToolFormat: 'openai-style',
+		reasoningCapabilities: false,
+	},
+	
+	// Grok Code Fast 1 - Optimized for coding
+	'grok-code-fast-1': {
+		contextWindow: 256_000, // 256K tokens, 2M tpm, 480 rpm
+		reservedOutputTokenSpace: null,
+		cost: { input: 0.20, output: 1.50 },
+		downloadable: false,
+		supportsFIM: false,
+		supportsSystemMessage: 'system-role',
+		specialToolFormat: 'openai-style',
+		reasoningCapabilities: false,
+	},
+	
+	// Grok 4-0709 - Older Grok 4 snapshot
+	'grok-4-0709': {
+		contextWindow: 256_000, // 256K tokens, 2M tpm, 480 rpm
 		reservedOutputTokenSpace: null,
 		cost: { input: 3.00, output: 15.00 },
 		downloadable: false,
@@ -753,19 +873,10 @@ const xAIModelOptions = {
 		specialToolFormat: 'openai-style',
 		reasoningCapabilities: false,
 	},
-	'grok-3-fast': {
-		contextWindow: 131_072,
-		reservedOutputTokenSpace: null,
-		cost: { input: 5.00, output: 25.00 },
-		downloadable: false,
-		supportsFIM: false,
-		supportsSystemMessage: 'system-role',
-		specialToolFormat: 'openai-style',
-		reasoningCapabilities: false,
-	},
-	// only mini supports thinking
+	
+	// Grok 3 Mini - Affordable with reasoning
 	'grok-3-mini': {
-		contextWindow: 131_072,
+		contextWindow: 131_072, // 131K tokens, 480 rpm
 		reservedOutputTokenSpace: null,
 		cost: { input: 0.30, output: 0.50 },
 		downloadable: false,
@@ -774,15 +885,29 @@ const xAIModelOptions = {
 		specialToolFormat: 'openai-style',
 		reasoningCapabilities: { supportsReasoning: true, canTurnOffReasoning: false, canIOReasoning: false, reasoningSlider: { type: 'effort_slider', values: ['low', 'high'], default: 'low' } },
 	},
-	'grok-3-mini-fast': {
-		contextWindow: 131_072,
+	
+	// Grok 3 - Standard model
+	'grok-3': {
+		contextWindow: 131_072, // 131K tokens, 600 rpm
 		reservedOutputTokenSpace: null,
-		cost: { input: 0.60, output: 4.00 },
+		cost: { input: 3.00, output: 15.00 },
 		downloadable: false,
 		supportsFIM: false,
 		supportsSystemMessage: 'system-role',
 		specialToolFormat: 'openai-style',
-		reasoningCapabilities: { supportsReasoning: true, canTurnOffReasoning: false, canIOReasoning: false, reasoningSlider: { type: 'effort_slider', values: ['low', 'high'], default: 'low' } },
+		reasoningCapabilities: false,
+	},
+	
+	// Grok 2 Vision - Multimodal vision model
+	'grok-2-vision-1212': {
+		contextWindow: 32_768, // 32K tokens, 600 rpm (us-east-1 and eu-west-1 available)
+		reservedOutputTokenSpace: null,
+		cost: { input: 2.00, output: 10.00 },
+		downloadable: false,
+		supportsFIM: false,
+		supportsSystemMessage: 'system-role',
+		specialToolFormat: 'openai-style',
+		reasoningCapabilities: false,
 	},
 } as const satisfies { [s: string]: VoidStaticModelInfo }
 
@@ -791,9 +916,51 @@ const xAISettings: VoidStaticProviderInfo = {
 	modelOptionsFallback: (modelName) => {
 		const lower = modelName.toLowerCase()
 		let fallbackName: keyof typeof xAIModelOptions | null = null
-		if (lower.includes('grok-2')) fallbackName = 'grok-2'
-		if (lower.includes('grok-3')) fallbackName = 'grok-3'
-		if (lower.includes('grok')) fallbackName = 'grok-3'
+		
+		// Grok 4.1 models (2M context, optimized for agentic tool calling)
+		if (lower.includes('grok-4-1') || lower.includes('grok-4.1')) {
+			if (lower.includes('non-reasoning') || lower.includes('nonreasoning')) {
+				fallbackName = 'grok-4-1-fast-non-reasoning'
+			} else {
+				fallbackName = 'grok-4-1-fast-reasoning'
+			}
+		}
+		// Grok 4 Fast models (2M context)
+		else if (lower.includes('grok-4') && lower.includes('fast')) {
+			if (lower.includes('non-reasoning') || lower.includes('nonreasoning')) {
+				fallbackName = 'grok-4-fast-non-reasoning'
+			} else {
+				fallbackName = 'grok-4-fast-reasoning'
+			}
+		}
+		// Grok 4 Code model
+		else if (lower.includes('grok-code') || (lower.includes('grok') && lower.includes('code'))) {
+			fallbackName = 'grok-code-fast-1'
+		}
+		// Grok 4-0709 (older snapshot)
+		else if (lower.includes('grok-4-0709') || lower.includes('grok-4') && lower.includes('0709')) {
+			fallbackName = 'grok-4-0709'
+		}
+		// Generic Grok 4
+		else if (lower.includes('grok-4')) {
+			fallbackName = 'grok-4-1-fast-reasoning' // Default to latest with reasoning
+		}
+		// Grok 3 models
+		else if (lower.includes('grok-3-mini') || lower.includes('grok3mini')) {
+			fallbackName = 'grok-3-mini'
+		}
+		else if (lower.includes('grok-3') || lower.includes('grok3')) {
+			fallbackName = 'grok-3'
+		}
+		// Grok 2 Vision
+		else if (lower.includes('grok-2') && lower.includes('vision')) {
+			fallbackName = 'grok-2-vision-1212'
+		}
+		// Default to latest Grok 4 with reasoning
+		else if (lower.includes('grok')) {
+			fallbackName = 'grok-4-1-fast-reasoning'
+		}
+		
 		if (fallbackName) return { modelName: fallbackName, recognizedModelName: fallbackName, ...xAIModelOptions[fallbackName] }
 		return null
 	},

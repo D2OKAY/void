@@ -251,12 +251,14 @@ const nameOfChatMode = {
 	'normal': 'Chat',
 	'gather': 'Gather',
 	'agent': 'Agent',
+	'hybrid': 'Hybrid Agent',
 }
 
 const detailOfChatMode = {
 	'normal': 'Normal chat',
 	'gather': 'Reads files, but can\'t edit',
 	'agent': 'Edits files and uses tools',
+	'hybrid': 'Cloud AI plans, Local AI codes',
 }
 
 
@@ -266,7 +268,7 @@ const ChatModeDropdown = ({ className }: { className: string }) => {
 	const voidSettingsService = accessor.get('IVoidSettingsService')
 	const settingsState = useSettingsState()
 
-	const options: ChatMode[] = useMemo(() => ['normal', 'gather', 'agent'], [])
+	const options: ChatMode[] = useMemo(() => ['normal', 'gather', 'agent', 'hybrid'], [])
 
 	const onChangeOption = useCallback((newVal: ChatMode) => {
 		voidSettingsService.setGlobalSetting('chatMode', newVal)
@@ -283,6 +285,30 @@ const ChatModeDropdown = ({ className }: { className: string }) => {
 		getOptionsEqual={(a, b) => a === b}
 	/>
 
+}
+
+
+const HybridModelSelector = ({ className }: { className: string }) => {
+	const accessor = useAccessor()
+	const voidSettingsService = accessor.get('IVoidSettingsService')
+	const settingsState = useSettingsState()
+
+	const hasPlannerModel = !!settingsState.globalSettings.hybridPlannerModel
+	const hasCoderModel = !!settingsState.globalSettings.hybridCoderModel
+	
+	// Only show warning if models are not configured
+	if (!hasPlannerModel || !hasCoderModel) {
+		return (
+			<div className={`${className} flex flex-col gap-1 text-xs`}>
+				<div className="text-void-fg-3">
+					⚠️ Hybrid mode requires Planner and Coder models to be configured in settings
+				</div>
+			</div>
+		)
+	}
+	
+	// Models are configured, show nothing or show configured models
+	return null
 }
 
 
@@ -337,6 +363,8 @@ export const VoidChatArea: React.FC<VoidChatAreaProps> = ({
 	featureName,
 	loadingIcon,
 }) => {
+	const settingsState = useSettingsState()
+	
 	return (
 		<div
 			ref={divRef}
@@ -382,16 +410,20 @@ export const VoidChatArea: React.FC<VoidChatAreaProps> = ({
 
 			{/* Bottom row */}
 			<div className='flex flex-row justify-between items-end gap-1'>
-				{showModelDropdown && (
-					<div className='flex flex-col gap-y-1'>
-						<ReasoningOptionSlider featureName={featureName} />
+			{showModelDropdown && (
+				<div className='flex flex-col gap-y-1'>
+					<ReasoningOptionSlider featureName={featureName} />
 
-						<div className='flex items-center flex-wrap gap-x-2 gap-y-1 text-nowrap '>
-							{featureName === 'Chat' && <ChatModeDropdown className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-2 rounded py-0.5 px-1' />}
-							<ModelDropdown featureName={featureName} className='text-xs text-void-fg-3 bg-void-bg-1 rounded' />
-						</div>
+					<div className='flex items-center flex-wrap gap-x-2 gap-y-1 text-nowrap '>
+						{featureName === 'Chat' && <ChatModeDropdown className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-2 rounded py-0.5 px-1' />}
+						<ModelDropdown featureName={featureName} className='text-xs text-void-fg-3 bg-void-bg-1 rounded' />
 					</div>
-				)}
+					
+					{featureName === 'Chat' && settingsState.globalSettings.chatMode === 'hybrid' && (
+						<HybridModelSelector className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-2 rounded py-1 px-2' />
+					)}
+				</div>
+			)}
 
 				<div className="flex items-center gap-2">
 

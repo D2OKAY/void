@@ -9,6 +9,7 @@ import { registerSingleton, InstantiationType } from '../../../../platform/insta
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IFileService, IFileStat } from '../../../../platform/files/common/files.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { ShallowDirectoryItem, BuiltinToolCallParams, BuiltinToolResultType } from './toolsServiceTypes.js';
 import { MAX_CHILDREN_URIs_PAGE, MAX_DIRSTR_CHARS_TOTAL_BEGINNING, MAX_DIRSTR_CHARS_TOTAL_TOOL } from './prompt/prompts.js';
 
@@ -26,7 +27,7 @@ export interface IDirectoryStrService {
 	readonly _serviceBrand: undefined;
 
 	getDirectoryStrTool(uri: URI): Promise<string>
-	getAllDirectoriesStr(opts: { cutOffMessage: string }): Promise<string>
+	getAllDirectoriesStr(opts: { cutOffMessage: string, maxChars?: number }): Promise<string>
 
 	getAllURIsInDirectory(uri: URI, opts: { maxResults: number }): Promise<URI[]>
 
@@ -387,6 +388,7 @@ class DirectoryStrService extends Disposable implements IDirectoryStrService {
 	constructor(
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IFileService private readonly fileService: IFileService,
+		@IEditorService private readonly editorService: IEditorService,
 	) {
 		super();
 	}
@@ -434,43 +436,52 @@ class DirectoryStrService extends Disposable implements IDirectoryStrService {
 		return c
 	}
 
-	async getAllDirectoriesStr({ cutOffMessage, }: { cutOffMessage: string, }) {
+	async getAllDirectoriesStr({ cutOffMessage, maxChars = MAX_DIRSTR_CHARS_TOTAL_BEGINNING }: { cutOffMessage: string, maxChars?: number }) {
 		let str: string = '';
 		let cutOff = false;
 		const folders = this.workspaceContextService.getWorkspace().folders;
+		
 		if (folders.length === 0)
 			return '(NO WORKSPACE OPEN)';
 
-		// Use START_MAX_ITEMS_PER_DIR if not specified
-		const startMaxItemsPerDir = START_MAX_ITEMS_PER_DIR;
+		// Check if there's an active file to determine relevant folder
+		const activeEditor = this.editorService.activeEditor;
+		const activeFileUri = activeEditor?.resource;
+		
+		let relevantFolder = null;
+		
+		// If active file exists, find which workspace folder it belongs to
+		if (activeFileUri) {
+			relevantFolder = folders.find(f => 
+				activeFileUri.fsPath.startsWith(f.uri.fsPath)
+			);
+		}
 
-		for (let i = 0; i < folders.length; i += 1) {
-			if (i > 0) str += '\n';
+		// CASE 1: Active file exists - send only that folder's full structure
+		if (relevantFolder) {
+			str += `Directory of ${relevantFolder.uri.fsPath}:\n`;
+			const rootURI = relevantFolder.uri;
+			const eRoot = await this.fileService.resolve(rootURI);
+			
+			if (eRoot) {
+				const startMaxItemsPerDir = START_MAX_ITEMS_PER_DIR;
 
-			// this prioritizes filling 1st workspace before any other, etc
-			const f = folders[i];
-			str += `Directory of ${f.uri.fsPath}:\n`;
-			const rootURI = f.uri;
-
-			const eRoot = await this.fileService.resolve(rootURI)
-			if (!eRoot) continue;
-
-			// First try with START_MAX_DEPTH and startMaxItemsPerDir
+				// First try with START_MAX_DEPTH
 			const { content: initialContent, wasCutOff: initialCutOff } = await computeAndStringifyDirectoryTree(
 				eRoot,
 				this.fileService,
-				MAX_DIRSTR_CHARS_TOTAL_BEGINNING - str.length,
+					maxChars - str.length,
 				{ count: 0 },
 				{ maxDepth: START_MAX_DEPTH, currentDepth: 0, maxItemsPerDir: startMaxItemsPerDir }
 			);
 
-			// If cut off, try again with DEFAULT_MAX_DEPTH and DEFAULT_MAX_ITEMS_PER_DIR
+				// If cut off, try again with DEFAULT_MAX_DEPTH
 			let content, wasCutOff;
 			if (initialCutOff) {
 				const result = await computeAndStringifyDirectoryTree(
 					eRoot,
 					this.fileService,
-					MAX_DIRSTR_CHARS_TOTAL_BEGINNING - str.length,
+						maxChars - str.length,
 					{ count: 0 },
 					{ maxDepth: DEFAULT_MAX_DEPTH, currentDepth: 0, maxItemsPerDir: DEFAULT_MAX_ITEMS_PER_DIR }
 				);
@@ -482,14 +493,20 @@ class DirectoryStrService extends Disposable implements IDirectoryStrService {
 			}
 
 			str += content;
-			if (wasCutOff) {
-				cutOff = true;
-				break;
+				cutOff = wasCutOff;
 			}
 		}
+		// CASE 2: No active file - send only root-level folder names (minimal)
+		else {
+			str += 'Workspace contains these root folders:\n';
+			for (const folder of folders) {
+				str += `- ${folder.uri.fsPath}\n`;
+			}
+			str += '\n(Open a file or use tools like get_dir_tree to explore folder contents)';
+		}
 
-		const ans = cutOff ? `${str.trimEnd()}\n${cutOffMessage}` : str
-		return ans
+		const ans = cutOff ? `${str.trimEnd()}\n${cutOffMessage}` : str;
+		return ans;
 	}
 }
 
