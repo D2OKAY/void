@@ -41,12 +41,13 @@ import { IMCPService } from '../common/mcpService.js';
 import { RawMCPToolCall } from '../common/mcpServiceTypes.js';
 import { IHybridAgentService } from '../common/hybridAgentServiceTypes.js';
 import { IHybridPlanService } from '../common/hybridPlanServiceTypes.js';
-import { HybridPlan } from '../common/hybridAgentTypes.js';
+import { HybridPlan, CoderResponse } from '../common/hybridAgentTypes.js';
 
 
 // related to retrying when LLM message has error
 const CHAT_RETRIES = 3
 const RETRY_DELAY = 2500
+const STEP_EXECUTION_TIMEOUT = 180000 // 180 seconds (3 minutes) per hybrid step - increased for complex research tasks
 
 
 const findStagingSelectionIndex = (currentSelections: StagingSelectionItem[] | undefined, newSelection: StagingSelectionItem): number | null => {
@@ -293,7 +294,7 @@ export interface IChatThreadService {
 	jumpToCheckpointBeforeMessageIdx(opts: { threadId: string, messageIdx: number, jumpToUserModified: boolean }): void;
 
 	// hybrid agent execution
-	executeAgentTask(opts: { threadId: string, initialMessage: string, modelSelection: ModelSelection, modelSelectionOptions: ModelSelectionOptions | undefined }): Promise<void>;
+	executeAgentTask(opts: { threadId: string, initialMessage: string, systemMessageOverride?: string, modelSelection: ModelSelection, modelSelectionOptions: ModelSelectionOptions | undefined, forceAgentMode?: boolean }): Promise<void>;
 
 	focusCurrentChat: () => Promise<void>
 	blurCurrentChat: () => Promise<void>
@@ -737,6 +738,11 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 
 
 
+	/**
+	 * Hybrid Agent: Intelligently routes between Agent mode and full Hybrid planning mode
+	 * - Simple tasks (1-2 files): Uses Agent mode with planner model for fast execution
+	 * - Complex tasks (3+ files, architecture): Uses full Hybrid planning with multi-step execution
+	 */
 	private async _runHybridAgent({
 		threadId,
 		plannerModel,
@@ -750,26 +756,29 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 	}) {
 		try {
 			// Step 1: Decide if planning is needed
-			const { needsPlan, reasoning } = await this._hybridAgentService.decidePlanningNeeded(userTask);
+			const { needsPlan } = await this._hybridAgentService.decidePlanningNeeded(userTask);
 
 			this._addMessageToThread(threadId, {
 				role: 'assistant',
 				displayContent: needsPlan
-					? `📋 This task needs planning. ${reasoning}`
-					: `✓ Simple task, executing directly. ${reasoning}`,
+					? `📋 Complex task, creating plan...`
+					: `✓ Simple task, executing directly...`,
 				reasoning: '',
 				anthropicReasoning: null
 			});
 
-			let plan: HybridPlan;
-
 			if (needsPlan) {
-				// Step 2: Create plan
-				const context = ''; // TODO: gather context from selections and workspace
-				plan = await this._hybridAgentService.createPlan(userTask, context);
-				await this._hybridPlanService.savePlan(plan, 'project');
+			// Complex task: use full Hybrid mode
+			const context = ''; // TODO: gather context from selections and workspace
+			const plan = await this._hybridAgentService.createPlan(userTask, context);
 
-				// Step 3: Display plan for review - add to messages with special type
+			// Validate plan has steps
+			if (!plan.steps || plan.steps.length === 0) {
+				throw new Error('Planner created an empty plan with no steps. Please try rephrasing your task or using a different model.');
+			}
+
+			await this._hybridPlanService.savePlan(plan, 'project');
+
 				this._addMessageToThread(threadId, {
 					role: 'assistant',
 					displayContent: `Plan created with ${plan.steps.length} steps. Review and approve to execute.`,
@@ -777,30 +786,17 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 					anthropicReasoning: null
 				});
 
-				// For now, auto-approve the plan (TODO: add UI approval mechanism)
-				// In a real implementation, we'd wait for user approval here
+				// Execute with Hybrid infrastructure
+				await this._executeHybridPlan(threadId, plan, coderModel, plannerModel);
 			} else {
-				// Direct execution (single step plan)
-				plan = {
-					planId: generateUuid(),
-					title: userTask,
-					summary: 'Direct execution',
-					createdAt: new Date().toISOString(),
-					createdBy: plannerModel.modelName,
-					steps: [{
-						stepId: '1',
-						description: userTask,
-						toolsToUse: [],
-						expectedFiles: [],
-						riskLevel: 'moderate',
-						dependencies: []
-					}],
-					isTemplate: false
-				};
+				// Simple task: route to Agent mode directly
+				// Use planner model for execution
+				await this._runChatAgent({
+					threadId,
+					modelSelection: plannerModel,
+					modelSelectionOptions: this._settingsService.state.optionsOfModelSelection['Chat']?.[plannerModel.providerName]?.[plannerModel.modelName]
+				});
 			}
-
-			// Step 4: Execute plan
-			await this._executeHybridPlan(threadId, plan, coderModel, plannerModel);
 
 		} catch (error) {
 			this._addMessageToThread(threadId, {
@@ -818,6 +814,9 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 		coderModel: ModelSelection,
 		plannerModel: ModelSelection
 	): Promise<void> {
+		// Accumulate findings from all previous steps to pass as context
+		const stepFindings: string[] = [];
+
 		for (let i = 0; i < plan.steps.length; i++) {
 			const step = plan.steps[i];
 
@@ -836,7 +835,7 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 			}
 
 			// Create execution callback for running agent in temp thread
-			const executeCallback = async (params: { instructionMessage: string, modelSelection: ModelSelection, modelSelectionOptions: ModelSelectionOptions | undefined }) => {
+			const executeCallback = async (params: { instructionMessage: string, systemMessageOverride?: string, modelSelection: ModelSelection, modelSelectionOptions: ModelSelectionOptions | undefined }) => {
 				// Create temp thread
 				const execThreadId = generateUuid();
 				this._setState({
@@ -858,12 +857,14 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 					}
 				});
 
-				// Execute agent task
+				// Execute agent task - force agent mode to give Coder access to all tools
 				await this.executeAgentTask({
 					threadId: execThreadId,
 					initialMessage: params.instructionMessage,
+					systemMessageOverride: params.systemMessageOverride,
 					modelSelection: params.modelSelection,
-					modelSelectionOptions: params.modelSelectionOptions
+					modelSelectionOptions: params.modelSelectionOptions,
+					forceAgentMode: true
 				});
 
 				// Extract results
@@ -874,37 +875,121 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 				let hadError = false;
 				let errorMessage = '';
 
+				// Enhanced extraction - capture ALL messages including tool results
 				for (const msg of messages) {
 					if (msg.role === 'assistant') {
 						conversationMessages.push({ role: 'assistant', content: msg.displayContent });
 						fullOutput += msg.displayContent + '\n\n';
-					} else if (msg.role === 'tool' && msg.type === 'success') {
-						conversationMessages.push({ role: 'tool', content: msg.content, toolName: msg.name });
+					} else if (msg.role === 'tool') {
+						// Include both successful and error tool calls
+						const toolContent = msg.type === 'success' ? msg.content :
+							msg.type === 'tool_error' ? `ERROR: ${msg.content}` :
+							msg.content;
+
+						conversationMessages.push({
+							role: 'tool',
+							content: toolContent,
+							toolName: msg.name
+						});
+
+						// For key informational tools, include abbreviated results in fullOutput
+						// This gives next steps better context
+						if (msg.type === 'success' && (
+							msg.name === 'ls_dir' ||
+							msg.name === 'get_dir_tree' ||
+							msg.name === 'read_file' ||
+							msg.name === 'search_for_files' ||
+							msg.name === 'search_pathnames_only'
+						)) {
+							const abbreviated = toolContent.length > 500
+								? toolContent.slice(0, 500) + '... (truncated)'
+								: toolContent;
+							fullOutput += `[${msg.name} result]\n${abbreviated}\n\n`;
+						}
 					}
 				}
 
-				const streamState = this.streamState[execThreadId];
-				if (streamState?.error) {
-					hadError = true;
-					errorMessage = streamState.error.message;
-				}
+			const streamState = this.streamState[execThreadId];
+			if (streamState?.error) {
+				hadError = true;
+				errorMessage = streamState.error.message;
+			}
 
-				return {
-					success: !hadError,
-					output: fullOutput.trim(),
-					conversationMessages,
-					error: hadError ? errorMessage : undefined
-				};
+			// Special handling: If we have output/tool results but got "empty response" error,
+			// treat it as success (model likely produced tool calls but no final text)
+			const hasActualOutput = fullOutput.trim().length > 0 || conversationMessages.length > 0;
+			const isEmptyResponseError = errorMessage.includes('Response from model was empty');
+
+			if (hasActualOutput && isEmptyResponseError) {
+				// Override error - we have useful output from tools
+				hadError = false;
+				errorMessage = '';
+			}
+
+			// If truly no output at all, provide a helpful error
+			if (!hasActualOutput && !hadError) {
+				hadError = true;
+				errorMessage = 'The model completed but produced no output. This may indicate a prompt issue or model limitation.';
+			}
+
+			return {
+				success: !hadError,
+				output: fullOutput.trim() || 'No output generated',
+				conversationMessages,
+				error: hadError ? errorMessage : undefined
+			};
 			};
 
 			// Execute with Coder
-			let response = await this._hybridAgentService.executeStep(step, plan.summary, executeCallback);
+			// Build context with plan summary and all previous step findings
+			const contextWithFindings = stepFindings.length > 0
+				? `${plan.summary}\n\nPrevious steps' findings:\n${stepFindings.map((f, idx) => `Step ${idx + 1}: ${f}`).join('\n\n')}`
+				: plan.summary;
+
+			// Get workspace context to pass to Coder (same context Agent mode gets)
+			const workspace = this._workspaceContextService.getWorkspace();
+			const workspaceFolders = workspace.folders.map(f => f.uri.fsPath);
+			const activeFile = this.state.allThreads[threadId]?.state.focusedMessageIdx !== undefined
+				? undefined
+				: workspace.folders[0]?.uri.fsPath;
+			const workspaceContext = {
+				folders: workspaceFolders,
+				activeFile
+			};
+
+			// Execute with timeout to prevent infinite loops
+			let response: CoderResponse;
+			try {
+				response = await Promise.race([
+					this._hybridAgentService.executeStep(
+						step,
+						contextWithFindings,
+						executeCallback,
+						undefined,
+						workspaceContext
+					),
+					new Promise<CoderResponse>((_, reject) =>
+						setTimeout(() => reject(new Error('Step execution timeout')), STEP_EXECUTION_TIMEOUT)
+					)
+				]);
+			} catch (error) {
+				if (error instanceof Error && error.message === 'Step execution timeout') {
+					response = {
+						success: false,
+						error: `Step timed out after ${STEP_EXECUTION_TIMEOUT / 1000} seconds`,
+						output: 'Execution exceeded time limit'
+					};
+				} else {
+					throw error;
+				}
+			}
 
 			if (!response.success) {
 				// Retry with enhanced instructions
+				const errorDetail = response.clarificationRequest || response.error || 'Unknown error';
 				this._addMessageToThread(threadId, {
 					role: 'assistant',
-					displayContent: `⚠️ Coder requested clarification: ${response.clarificationRequest || response.error}`,
+					displayContent: `⚠️ Step failed on first attempt: ${errorDetail}\n\nRetrying with enhanced instructions...`,
 					reasoning: '',
 					anthropicReasoning: null
 				});
@@ -915,49 +1000,110 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 					response.output
 				);
 
-				response = await this._hybridAgentService.executeStep(step, enhancedInstructions, executeCallback, response.error);
+				// Include previous findings in retry context too
+				const retryContextWithFindings = stepFindings.length > 0
+					? `${enhancedInstructions}\n\nPrevious steps' findings:\n${stepFindings.map((f, idx) => `Step ${idx + 1}: ${f}`).join('\n\n')}`
+					: enhancedInstructions;
 
-				if (!response.success) {
-					// Planner takeover
+				response = await this._hybridAgentService.executeStep(
+					step,
+					retryContextWithFindings,
+					executeCallback,
+					response.error,
+					workspaceContext
+				);
+
+			if (!response.success) {
+				// Planner takeover
+				this._addMessageToThread(threadId, {
+					role: 'assistant',
+					displayContent: `⚠️ Step failed after retry. Error: ${response.error}\n\n🔄 Switching to planner model to attempt completion...`,
+					reasoning: '',
+					anthropicReasoning: null
+				});
+
+				try {
+					const plannerResponse = await this._hybridAgentService.plannerTakeover(step, response.error!, executeCallback);
+					response = plannerResponse; // Use planner's response
+
+					if (response.success) {
+						this._addMessageToThread(threadId, {
+							role: 'assistant',
+							displayContent: `✅ Planner successfully completed the step.`,
+							reasoning: '',
+							anthropicReasoning: null
+						});
+					}
+				} catch (error) {
 					this._addMessageToThread(threadId, {
 						role: 'assistant',
-						displayContent: `⚠️ Coder failed twice. Planner taking over...`,
+						displayContent: `❌ Planner takeover also failed: ${getErrorMessage(error)}`,
 						reasoning: '',
 						anthropicReasoning: null
 					});
-
-					const plannerResponse = await this._hybridAgentService.plannerTakeover(step, response.error!, executeCallback);
-					response = plannerResponse; // Use planner's response
+					// Keep the original response error
 				}
+			}
 			}
 
 		// Add success message with the Coder's/Planner's actual output and tool executions
-		if (response.success && response.output) {
-			// Display tool executions if any
+		if (response.success) {
+			// Display all assistant messages from the conversation
 			if (response.conversationMessages && response.conversationMessages.length > 0) {
-				const toolMessages = response.conversationMessages.filter(msg => msg.role === 'tool');
-				if (toolMessages.length > 0) {
-					const toolSummary = toolMessages.map(t => `[Tool: ${t.toolName}] ✓`).join('\n');
+				for (const msg of response.conversationMessages) {
+					if (msg.role === 'assistant' && msg.content.trim()) {
+						this._addMessageToThread(threadId, {
+							role: 'assistant',
+							displayContent: msg.content,
+							reasoning: '',
+							anthropicReasoning: null
+						});
+					}
+				}
+			} else if (response.output && response.output.trim()) {
+				// Fallback to condensed output if conversationMessages is empty
+				this._addMessageToThread(threadId, {
+					role: 'assistant',
+					displayContent: response.output,
+					reasoning: '',
+					anthropicReasoning: null
+				});
+			}
+
+			// Show which tools were used (for visibility)
+			if (response.conversationMessages && response.conversationMessages.length > 0) {
+				const toolCalls = response.conversationMessages
+					.filter(m => m.role === 'tool' && m.toolName)
+					.map(m => m.toolName)
+					.filter((v, i, a) => a.indexOf(v) === i); // unique tools
+
+				if (toolCalls.length > 0) {
 					this._addMessageToThread(threadId, {
 						role: 'assistant',
-						displayContent: toolSummary,
+						displayContent: `🔧 Tools used: ${toolCalls.join(', ')}`,
 						reasoning: '',
 						anthropicReasoning: null
 					});
 				}
 			}
 
-			// Display the main output
-			this._addMessageToThread(threadId, {
-				role: 'assistant',
-				displayContent: response.output,
-				reasoning: '',
-				anthropicReasoning: null
-			});
+			// Accumulate this step's findings for next steps to reference
+			const stepOutput = response.output ||
+				response.conversationMessages?.filter(m => m.role === 'assistant').map(m => m.content).join('\n\n') ||
+				'(Step completed with no output)';
+			stepFindings.push(stepOutput);
 
 			this._addMessageToThread(threadId, {
 				role: 'assistant',
 				displayContent: `✅ Step ${i + 1} completed.`,
+				reasoning: '',
+				anthropicReasoning: null
+			});
+		} else {
+			// Handle failure case - still mark as complete but note the issue
+			this._addMessageToThread(threadId, {
+				role: 'assistant',
+				displayContent: `❌ Step ${i + 1} failed: ${response.error || 'Unknown error'}`,
 				reasoning: '',
 				anthropicReasoning: null
 			});
@@ -980,12 +1126,16 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 		modelSelection,
 		modelSelectionOptions,
 		callThisToolFirst,
+		forceAgentMode,
+		systemMessageOverride,
 	}: {
 		threadId: string,
 		modelSelection: ModelSelection | null,
 		modelSelectionOptions: ModelSelectionOptions | undefined,
 
 		callThisToolFirst?: ToolMessage<ToolName> & { type: 'tool_request' }
+		forceAgentMode?: boolean
+		systemMessageOverride?: string
 	}) {
 
 
@@ -994,7 +1144,8 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 		// _runToolCall does not need setStreamState({idle}) before it, but it needs it after it. (handles its own setStreamState)
 
 		// above just defines helpers, below starts the actual function
-		const { chatMode } = this._settingsService.state.globalSettings // should not change as we loop even if user changes it, so it goes here
+		const globalChatMode = this._settingsService.state.globalSettings.chatMode;
+		const chatMode = forceAgentMode ? 'agent' : globalChatMode; // Force agent mode if requested (for hybrid step execution)
 		const { overridesOfModel } = this._settingsService.state
 
 		let nMessagesSent = 0
@@ -1026,7 +1177,8 @@ class ChatThreadService extends Disposable implements IChatThreadService {
 			const { messages, separateSystemMessage } = await this._convertToLLMMessagesService.prepareLLMChatMessages({
 				chatMessages,
 				modelSelection,
-				chatMode
+				chatMode,
+				systemMessageOverride
 			})
 
 			if (interruptedWhenIdle) {
@@ -1507,7 +1659,7 @@ We only need to do it for files that were edited since `from`, ie files between 
 		if (chatMode === 'hybrid') {
 			const plannerModel = this._settingsService.state.globalSettings.hybridPlannerModel;
 			const coderModel = this._settingsService.state.globalSettings.hybridCoderModel;
-			
+
 			if (!plannerModel || !coderModel) {
 				this._addMessageToThread(threadId, {
 					role: 'assistant',
@@ -1517,7 +1669,7 @@ We only need to do it for files that were edited since `from`, ie files between 
 				});
 				return;
 			}
-			
+
 			this._wrapRunAgentToNotify(
 				this._runHybridAgent({ threadId, plannerModel, coderModel, userTask: instructions }),
 				threadId,
@@ -2146,7 +2298,7 @@ We only need to do it for files that were edited since `from`, ie files between 
 	}
 
 	// Execute an agent task in a specific thread
-	async executeAgentTask({ threadId, initialMessage, modelSelection, modelSelectionOptions }: { threadId: string, initialMessage: string, modelSelection: ModelSelection, modelSelectionOptions: ModelSelectionOptions | undefined }): Promise<void> {
+	async executeAgentTask({ threadId, initialMessage, systemMessageOverride, modelSelection, modelSelectionOptions, forceAgentMode }: { threadId: string, initialMessage: string, systemMessageOverride?: string, modelSelection: ModelSelection, modelSelectionOptions: ModelSelectionOptions | undefined, forceAgentMode?: boolean }): Promise<void> {
 		// Add the initial message to the thread
 		this._addMessageToThread(threadId, {
 			role: 'user',
@@ -2161,6 +2313,8 @@ We only need to do it for files that were edited since `from`, ie files between 
 			threadId,
 			modelSelection,
 			modelSelectionOptions,
+			systemMessageOverride,
+			forceAgentMode: forceAgentMode,
 		});
 	}
 

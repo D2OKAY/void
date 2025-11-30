@@ -431,7 +431,7 @@ export const availableTools = (chatMode: ChatMode | null, mcpTools: InternalTool
 		builtinToolNames = readOnlyBrainTools
 	} else if (chatMode === 'gather') {
 		// Gather mode: non-approval tools (excluding brain tools, which we add separately)
-		const gatherTools = (Object.keys(builtinTools) as BuiltinToolName[]).filter(toolName => 
+		const gatherTools = (Object.keys(builtinTools) as BuiltinToolName[]).filter(toolName =>
 			!(toolName in approvalTypeOfBuiltinToolName) && !allBrainTools.includes(toolName)
 		)
 		builtinToolNames = [...gatherTools, ...readOnlyBrainTools, ...writeBrainTools]
@@ -477,13 +477,13 @@ export const reParsedToolXMLString = (toolName: ToolName, toolParams: RawToolPar
 /* We expect tools to come at the end - not a hard limit, but that's just how we process them, and the flow makes more sense that way. */
 // - You are allowed to call multiple tools by specifying them consecutively. However, there should be NO text or writing between tool calls or after them.
 const systemToolsXMLPrompt = (
-	chatMode: ChatMode, 
+	chatMode: ChatMode,
 	mcpTools: InternalToolInfo[] | undefined,
 	maxTools?: number
 ) => {
 	let tools = availableTools(chatMode, mcpTools)
 	if (!tools || tools.length === 0) return null
-	
+
 	// Limit tools for small models
 	if (maxTools && tools.length > maxTools) {
 		// Prioritize built-in tools over MCP tools
@@ -519,9 +519,9 @@ const systemToolsXMLPrompt = (
 
 export const chat_systemMessage = ({ workspaceFolders, openedURIs, activeURI, persistentTerminalIDs, directoryStr, chatMode: mode, mcpTools, includeXMLToolDefinitions, useCompact = false, maxTools }: { workspaceFolders: string[], directoryStr: string, openedURIs: string[], activeURI: string | undefined, persistentTerminalIDs: string[], chatMode: ChatMode, mcpTools: InternalToolInfo[] | undefined, includeXMLToolDefinitions: boolean, useCompact?: boolean, maxTools?: number }) => {
 	if (useCompact) {
-		return chat_systemMessage_compact({ 
-			workspaceFolders, openedURIs, activeURI, persistentTerminalIDs, 
-			directoryStr, chatMode: mode, mcpTools, includeXMLToolDefinitions, maxTools 
+		return chat_systemMessage_compact({
+			workspaceFolders, openedURIs, activeURI, persistentTerminalIDs,
+			directoryStr, chatMode: mode, mcpTools, includeXMLToolDefinitions, maxTools
 		})
 	}
 	const header = (`You are an expert coding ${mode === 'agent' ? 'agent' : 'assistant'} whose job is \
@@ -639,32 +639,32 @@ ${details.map((d, i) => `${i + 1}. ${d}`).join('\n\n')}`)
 }
 
 // Compact system message for small models (moderate reduction ~40%)
-export const chat_systemMessage_compact = ({ 
-	workspaceFolders, openedURIs, activeURI, persistentTerminalIDs, 
+export const chat_systemMessage_compact = ({
+	workspaceFolders, openedURIs, activeURI, persistentTerminalIDs,
 	directoryStr, chatMode: mode, mcpTools, includeXMLToolDefinitions,
-	maxTools 
-}: { 
-	workspaceFolders: string[], 
-	directoryStr: string, 
-	openedURIs: string[], 
-	activeURI: string | undefined, 
-	persistentTerminalIDs: string[], 
-	chatMode: ChatMode, 
-	mcpTools: InternalToolInfo[] | undefined, 
+	maxTools
+}: {
+	workspaceFolders: string[],
+	directoryStr: string,
+	openedURIs: string[],
+	activeURI: string | undefined,
+	persistentTerminalIDs: string[],
+	chatMode: ChatMode,
+	mcpTools: InternalToolInfo[] | undefined,
 	includeXMLToolDefinitions: boolean,
 	maxTools?: number
 }): string => {
-	
+
 	const header = `Expert coding ${mode === 'agent' ? 'agent' : 'assistant'} for ${
 		mode === 'agent' ? 'developing and modifying codebases' :
 		mode === 'gather' ? 'searching and understanding files' :
 		'coding assistance'
 	}.`
-	
-	const brainGuidance = mode === 'gather' || mode === 'agent' ? 
-		`\n\nLEARNING: Use add_lesson when user corrects you or says "remember", "add to brain", "lesson", etc. Ask first: "Should I remember: [brief lesson]?"` 
+
+	const brainGuidance = mode === 'gather' || mode === 'agent' ?
+		`\n\nLEARNING: Use add_lesson when user corrects you or says "remember", "add to brain", "lesson", etc. Ask first: "Should I remember: [brief lesson]?"`
 		: ''
-	
+
 	const sysInfo = `System:
 <system_info>
 - ${os}
@@ -674,43 +674,43 @@ export const chat_systemMessage_compact = ({
 		mode === 'agent' && persistentTerminalIDs.length ? `\n- Terminals: ${persistentTerminalIDs.join(', ')}` : ''
 	}
 </system_info>`
-	
+
 	const fsInfo = `Files:
 <files_overview>
 ${directoryStr}
 </files_overview>`
-	
+
 	const toolDefinitions = includeXMLToolDefinitions ? systemToolsXMLPrompt(mode, mcpTools, maxTools) : null
-	
+
 	const details: string[] = []
 	details.push(`Never reject queries.`)
-	
+
 	if (mode === 'agent' || mode === 'gather') {
 		details.push(`Use tools only if helpful. No permission needed.`)
 		details.push(`One tool at a time. Describe what it does, not its name.`)
 	} else {
 		details.push(`Ask for context if needed. User can reference files with @.`)
 	}
-	
+
 	if (mode === 'agent') {
 		details.push(`Always use tools to implement changes.`)
 		details.push(`Gather context before making changes. Maximize certainty.`)
 	}
-	
+
 	if (mode === 'gather') {
 		details.push(`Use tools to gather information and context.`)
 	}
-	
+
 	details.push(`Code blocks: language, full path on line 1.`)
-	
+
 	if (mode === 'gather' || mode === 'normal') {
 		details.push(`Suggest edits in code blocks with "// ... existing ..." for context. Example:\n${chatSuggestionDiffExample}`)
 	}
-	
+
 	details.push(`Use markdown formatting. Today: ${new Date().toDateString()}.`)
-	
+
 	const importantDetails = `Rules:\n${details.map((d, i) => `${i + 1}. ${d}`).join('\n')}`
-	
+
 	return [header, brainGuidance, sysInfo, toolDefinitions, importantDetails, fsInfo]
 		.filter(Boolean)
 		.join('\n\n')
@@ -1262,27 +1262,30 @@ ${log}`.trim()
 // Planner prompts
 export const hybrid_plannerDecision_systemMessage = `You are a planning AI that decides if a task needs detailed planning or can be executed directly.
 
-Respond ONLY with JSON:
+Respond ONLY with valid JSON (no markdown, no code blocks):
 {
   "needsPlan": boolean,
-  "reasoning": "one sentence explanation"
+  "reasoning": "brief explanation"
 }
 
-Tasks that NEED planning (complex):
-- Multi-file changes (3+ files)
-- Complex refactoring or new features
-- Database migrations or architecture changes
-- Project analysis (understanding entire codebases, explaining how systems work)
-- Research tasks (finding patterns across multiple files, code reviews)
-- Questions about project structure, architecture, or design decisions
-- Tasks involving multiple folders or the entire workspace
+Tasks that NEED planning (respond with needsPlan: true):
+- Multi-step processes requiring coordination (3+ distinct actions)
+- Research/analysis tasks (finding patterns, understanding systems, code reviews)
+- Multi-file changes or refactoring (3+ files)
+- Project-wide queries ("how does X work across the codebase?")
+- Architecture or design questions
+- Database migrations or infrastructure changes
 
-Tasks that DON'T need planning (simple):
-- Single file edits or bug fixes in 1-2 files
-- Documentation updates in a single file
-- Simple variable renames
-- Quick questions with obvious answers (e.g., "what does this function do?" with specific file reference)
-- One-liner code explanations`;
+Tasks that DON'T need planning (respond with needsPlan: false):
+- Single file edits or small bug fixes (1-2 files)
+- Simple questions with specific file references
+- Documentation updates
+- Variable/function renames
+- Direct code explanations ("what does this function do?")
+- Single command executions
+
+Example - NEEDS plan: "Research how authentication works in this project"
+Example - NO plan needed: "Fix the bug in login.ts where password validation fails"`;
 
 export const hybrid_createPlan_systemMessage = (context: string) => `You are a planning AI creating a structured execution plan.
 
@@ -1324,24 +1327,24 @@ Provide enhanced instructions including:
 
 Format: Plain text instructions (not JSON)`;
 
-// Coder prompts
-export const hybrid_coder_systemMessage = (step: any, planContext: string, retryContext?: string) => `You are a coding AI executing a single step from a plan.
+// Coder prompts (streamlined for better model compatibility)
+export const hybrid_coder_systemMessage = (step: any, planContext: string, retryContext?: string) => `You are executing a step from a plan. Use tools proactively and provide concrete results.
 
-Plan context: ${planContext}
+CONTEXT:
+Plan: ${planContext}
+Step: ${step.description}
+${step.expectedFiles?.length ? `Files: ${step.expectedFiles.join(', ')}` : ''}
+${step.toolsToUse?.length ? `Tools: ${step.toolsToUse.join(', ')}` : ''}
+${retryContext ? `\nPrevious attempt failed:\n${retryContext}\n` : ''}
 
-Current step: ${step.description}
-Expected files: ${step.expectedFiles.join(', ')}
-${step.toolsToUse.length ? `Recommended tools: ${step.toolsToUse.join(', ')}` : ''}
+INSTRUCTIONS:
+1. Use tools immediately when you need information (read_file, ls_dir, get_dir_tree, search_for_files, etc.)
+2. You do NOT need permission to use tools - just use them
+3. After gathering information with tools, analyze and provide findings
+4. Execute ONE tool at a time and wait for results
+5. Complete this step fully before finishing
+6. ALWAYS provide a summary of what you found/did
 
-${retryContext ? `RETRY CONTEXT (previous attempt failed):\n${retryContext}\n` : ''}
+CRITICAL: Do not just describe what you'll do - actually do it using tools. The user cannot respond to questions.
 
-Guidelines:
-- Execute ONLY this step, nothing more
-- Use tools to make actual changes
-- If you lack context, request it immediately
-- If you're uncertain, explain why and ask for clarification
-
-DO NOT:
-- Make changes outside this step's scope
-- Guess implementation details
-- Skip error handling`;
+Execute the step now.`;

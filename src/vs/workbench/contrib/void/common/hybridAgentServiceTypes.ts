@@ -4,6 +4,7 @@ import { ModelSelection, ModelSelectionOptions } from './voidSettingsTypes.js';
 
 export type ExecuteAgentCallback = (params: {
 	instructionMessage: string;
+	systemMessageOverride?: string;
 	modelSelection: ModelSelection;
 	modelSelectionOptions: ModelSelectionOptions | undefined;
 }) => Promise<CoderResponse>;
@@ -19,7 +20,7 @@ export interface IHybridAgentService {
 	enhanceStepInstructions(step: HybridPlanStep, error: string, badCode?: string): Promise<string>;
 
 	// Coder interactions
-	executeStep(step: HybridPlanStep, planContext: string, executeCallback: ExecuteAgentCallback, retryContext?: string): Promise<CoderResponse>;
+	executeStep(step: HybridPlanStep, planContext: string, executeCallback: ExecuteAgentCallback, retryContext?: string, workspaceContext?: { folders: string[], activeFile?: string }): Promise<CoderResponse>;
 
 	// Fallback handling
 	plannerTakeover(step: HybridPlanStep, coderError: string, executeCallback: ExecuteAgentCallback): Promise<CoderResponse>;

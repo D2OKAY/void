@@ -1,0 +1,130 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "lastUpdated": "2025-01-15T00:00:00.000Z",
+    "totalLessons": 10,
+    "categories": [
+      "hybrid-agent-architecture",
+      "hybrid-agent-response-handling",
+      "hybrid-agent-validation",
+      "hybrid-agent-error-handling",
+      "hybrid-agent-context-management",
+      "hybrid-agent-configuration",
+      "hybrid-agent-json-parsing",
+      "prompt-engineering"
+    ],
+    "lastCleanup": "2025-01-15T00:00:00.000Z"
+  },
+  "lessons": [
+    {
+      "id": "lesson-1737000000001-hybrid001",
+      "title": "Never put system instructions in user message role",
+      "description": "When using LLM services (GPT-4, Claude, Grok), system instructions MUST be sent in the system message role, not concatenated into user messages. LLMs distinguish between system and user roles - system messages define behavior and context, user messages are actual queries. Mixing these confuses the model and causes empty responses or incorrect behavior. Always use systemMessageOverride parameter when available and ensure it's passed through all service layers.",
+      "category": "hybrid-agent-architecture",
+      "priority": "high",
+      "isGlobalCandidate": true,
+      "dateAdded": "2025-01-15T00:00:00.000Z",
+      "timesReferenced": 0,
+      "context": "This was the root cause of the hybrid agent failure. Original code in hybridAgentService.ts concatenated system message with user instruction. Fixed by separating into systemMessageOverride and instructionMessage parameters, then passing systemMessageOverride through executeCallback → executeAgentTask → _runChatAgent → prepareLLMChatMessages."
+    },
+    {
+      "id": "lesson-1737000000002-hybrid002",
+      "title": "Explicitly enable agent mode when tools are required",
+      "description": "When executing tasks that require tool access (file operations, search, commands), always explicitly set forceAgentMode: true in the executeAgentTask call. Do not rely on global settings or default behavior. Agent mode ensures all tools are available to the model. Without explicit forcing, tools may be unavailable even if the model wants to use them, leading to failed executions.",
+      "category": "hybrid-agent-architecture",
+      "priority": "high",
+      "isGlobalCandidate": true,
+      "dateAdded": "2025-01-15T00:00:00.000Z",
+      "timesReferenced": 0,
+      "context": "In chatThreadService.ts line 861, added forceAgentMode: true to executeAgentTask call. This ensures the coder model has access to all tools regardless of global chat mode setting."
+    },
+    {
+      "id": "lesson-1737000000003-hybrid003",
+      "title": "Validate tool results as valid output even without text",
+      "description": "When extracting results from agent execution, check for tool results even if the model produces no text summary. Some models may execute tools correctly but produce minimal or no final text. This is still valid output. Use hasActualOutput = fullOutput.trim().length > 0 || conversationMessages.length > 0 to check for any output. If error is 'Response from model was empty' but tool results exist, override the error and treat as success.",
+      "category": "hybrid-agent-response-handling",
+      "priority": "high",
+      "isGlobalCandidate": true,
+      "dateAdded": "2025-01-15T00:00:00.000Z",
+      "timesReferenced": 0,
+      "context": "In chatThreadService.ts lines 912-921, added logic to detect tool-only responses. This prevents false negatives where model successfully uses tools but produces minimal text commentary."
+    },
+    {
+      "id": "lesson-1737000000004-hybrid004",
+      "title": "Always validate plans have at least one step",
+      "description": "After creating a plan with the planner model, immediately validate that plan.steps array is not empty. An empty plan will cause confusing 'Plan completed successfully!' message when nothing was executed. Throw error early: if (!plan.steps || plan.steps.length === 0) { throw new Error('Planner created an empty plan...') }. This catches planner model errors before execution begins.",
+      "category": "hybrid-agent-validation",
+      "priority": "medium",
+      "isGlobalCandidate": true,
+      "dateAdded": "2025-01-15T00:00:00.000Z",
+      "timesReferenced": 0,
+      "context": "Added in chatThreadService.ts lines 776-778 after plan creation. Catches edge case where planner model returns valid JSON with empty steps array."
+    },
+    {
+      "id": "lesson-1737000000005-hybrid005",
+      "title": "Retry failed steps with enhanced instructions from planner",
+      "description": "When a hybrid agent step fails, don't immediately give up. First retry: call enhanceStepInstructions() to get the planner's guidance, then retry with enhanced context. Second failure: trigger planner takeover where planner model directly executes the step. This three-tier approach (coder → enhanced coder → planner) maximizes success rate for complex tasks.",
+      "category": "hybrid-agent-error-handling",
+      "priority": "high",
+      "isGlobalCandidate": false,
+      "dateAdded": "2025-01-15T00:00:00.000Z",
+      "timesReferenced": 0,
+      "context": "Implemented in chatThreadService.ts lines 987-1020. Flow: First attempt → enhanceStepInstructions → retry → plannerTakeover if needed."
+    },
+    {
+      "id": "lesson-1737000000006-hybrid006",
+      "title": "Pass previous step findings to subsequent steps",
+      "description": "In multi-step hybrid execution, maintain a stepFindings array that accumulates output from each completed step. Pass this accumulated context to subsequent steps via the planContext parameter. Include in system message: 'Previous steps' findings: Step 1: [output], Step 2: [output]...'. This creates coherent multi-step workflows where each step informs the next.",
+      "category": "hybrid-agent-context-management",
+      "priority": "medium",
+      "isGlobalCandidate": false,
+      "dateAdded": "2025-01-15T00:00:00.000Z",
+      "timesReferenced": 0,
+      "context": "Implemented in chatThreadService.ts starting line 812. After each step, push output to stepFindings array, build contextWithFindings, pass to executeStep."
+    },
+    {
+      "id": "lesson-1737000000007-hybrid007",
+      "title": "Execute hybrid steps in isolated temporary threads",
+      "description": "When executing hybrid agent steps, create a new temporary thread for each step execution rather than using the main conversation thread. This isolates step execution, makes result extraction cleaner, and prevents main thread pollution. Create temp thread with generateUuid(), execute agent task, extract all messages, then destroy temp thread. Keep main thread for user-facing messages only.",
+      "category": "hybrid-agent-architecture",
+      "priority": "medium",
+      "isGlobalCandidate": false,
+      "dateAdded": "2025-01-15T00:00:00.000Z",
+      "timesReferenced": 0,
+      "context": "Implemented in chatThreadService.ts executeCallback (lines 832-935). Creates isolated execThreadId, runs task, extracts results, discards thread."
+    },
+    {
+      "id": "lesson-1737000000008-hybrid008",
+      "title": "Use longer timeouts for research and analysis tasks",
+      "description": "Complex tasks like codebase research, multi-file analysis, or architecture understanding can take several minutes per step. Set STEP_EXECUTION_TIMEOUT to at least 180000ms (3 minutes) for hybrid agent mode. This is much longer than typical chat timeouts because each step may involve multiple tool calls, file reads, and analysis. Better to wait longer than fail prematurely on legitimate long-running tasks.",
+      "category": "hybrid-agent-configuration",
+      "priority": "medium",
+      "isGlobalCandidate": true,
+      "dateAdded": "2025-01-15T00:00:00.000Z",
+      "timesReferenced": 0,
+      "context": "Changed in chatThreadService.ts line 50 from 60000ms to 180000ms. Research tasks commonly use 5-10 tools per step, each taking 2-5 seconds."
+    },
+    {
+      "id": "lesson-1737000000009-hybrid009",
+      "title": "Strip markdown and find JSON objects in LLM responses",
+      "description": "When expecting JSON responses from LLMs (like plan creation), don't assume pure JSON output. Models often wrap JSON in markdown code fences (```json...```) or add explanatory text. Use extractJSON() function that: 1) Strips markdown markers, 2) Uses regex to find JSON object, 3) Validates with JSON.parse(), 4) Returns cleaned JSON or throws with partial response for debugging. Always show first 200-300 chars of response in error messages.",
+      "category": "hybrid-agent-json-parsing",
+      "priority": "high",
+      "isGlobalCandidate": true,
+      "dateAdded": "2025-01-15T00:00:00.000Z",
+      "timesReferenced": 0,
+      "context": "Implemented in hybridAgentService.ts lines 13-39. Handles common LLM output formats. Error messages show partial response when parsing fails."
+    },
+    {
+      "id": "lesson-1737000000010-hybrid010",
+      "title": "Keep system prompts concise and action-oriented",
+      "description": "Long, verbose system prompts (>30 lines) confuse models and reduce reliability. For hybrid agent coder instructions, streamlined from 35 lines to ~15 lines improved success rate. Focus on: 1) Clear role definition, 2) Immediate action directives, 3) Critical constraints only, 4) One clear example pattern. Remove: redundant explanations, multiple examples, verbose formatting. Shorter prompts → clearer instructions → better model performance.",
+      "category": "prompt-engineering",
+      "priority": "medium",
+      "isGlobalCandidate": true,
+      "dateAdded": "2025-01-15T00:00:00.000Z",
+      "timesReferenced": 0,
+      "context": "Reduced hybrid_coder_systemMessage in prompts.ts from ~35 lines to ~15 lines. Removed redundant examples, consolidated instructions, eliminated verbose explanations."
+    }
+  ]
+}

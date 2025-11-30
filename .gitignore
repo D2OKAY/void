@@ -28,4 +28,23 @@ product.overrides.json
 .tool-versions
 src/vs/workbench/contrib/void/browser/react/out/**
 src/vs/workbench/contrib/void/browser/react/src2/**
-.void/
+
+# Void temporary analysis/debug files (do not commit)
+.temp-analysis/
+.void/plans/
+**/ANALYSIS_*.md
+**/SUMMARY_*.md
+**/REPORT_*.md
+**/TRACE_*.md
+**/VERIFICATION_*.md
+**/TEST_*.md
+**/DEBUG_*.md
+**/TEMP_*.md
+**/*_ANALYSIS.md
+**/*_SUMMARY.md
+**/*_REPORT.md
+**/*_TRACE.md
+**/*_FIX*.md
+**/*_GUIDE.md
+**/*_PLAN.md
+**/*_RECOMMENDATION*.md
