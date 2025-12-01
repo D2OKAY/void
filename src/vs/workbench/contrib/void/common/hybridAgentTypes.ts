@@ -1,3 +1,6 @@
+import { ToolMessage } from './chatThreadServiceTypes.js';
+import { ToolName } from './toolsServiceTypes.js';
+
 export type HybridPlanStep = {
 	stepId: string
 	description: string
@@ -33,6 +36,8 @@ export type CoderResponse = {
 	error?: string
 	needsClarification?: boolean
 	clarificationRequest?: string
+	reasoning?: string // Reasoning from temp thread assistant messages
+	toolMessages?: Array<ToolMessage<ToolName>> // Tool messages to display in main chat
 }
 
 

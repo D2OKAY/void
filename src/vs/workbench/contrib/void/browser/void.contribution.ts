@@ -41,6 +41,9 @@ import './hybridPlanService.js'
 import './hybridAgentService.js'
 import './hybridPlanWorkbenchContrib.js'
 
+// crewai coding mode
+import './crewAICodingService.js'
+
 // tools
 import './toolsService.js'
 import './terminalToolService.js'

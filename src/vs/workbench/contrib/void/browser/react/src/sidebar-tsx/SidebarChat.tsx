@@ -252,6 +252,7 @@ const nameOfChatMode = {
 	'gather': 'Gather',
 	'agent': 'Agent',
 	'hybrid': 'Hybrid Agent',
+	'crewai': 'CrewAI (Coding)',
 }
 
 const detailOfChatMode = {
@@ -259,6 +260,7 @@ const detailOfChatMode = {
 	'gather': 'Reads files, but can\'t edit',
 	'agent': 'Edits files and uses tools',
 	'hybrid': 'Cloud AI plans, Local AI codes',
+	'crewai': 'Multi-agent coding crew (researcher, developer, reviewer, tester)',
 }
 
 
@@ -268,7 +270,7 @@ const ChatModeDropdown = ({ className }: { className: string }) => {
 	const voidSettingsService = accessor.get('IVoidSettingsService')
 	const settingsState = useSettingsState()
 
-	const options: ChatMode[] = useMemo(() => ['normal', 'gather', 'agent', 'hybrid'], [])
+	const options: ChatMode[] = useMemo(() => ['normal', 'gather', 'agent', 'hybrid', 'crewai'], [])
 
 	const onChangeOption = useCallback((newVal: ChatMode) => {
 		voidSettingsService.setGlobalSetting('chatMode', newVal)

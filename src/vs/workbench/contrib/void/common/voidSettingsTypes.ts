@@ -440,7 +440,7 @@ export const isFeatureNameDisabled = (featureName: FeatureName, settingsState: V
 
 
 
-export type ChatMode = 'agent' | 'gather' | 'normal' | 'hybrid'
+export type ChatMode = 'agent' | 'gather' | 'normal' | 'hybrid' | 'crewai'
 
 
 export type GlobalSettings = {
@@ -459,6 +459,10 @@ export type GlobalSettings = {
 	autoAcceptLLMChanges: boolean;
 	hybridPlannerModel?: ModelSelection;
 	hybridCoderModel?: ModelSelection;
+	// CrewAI Coding Mode Settings
+	crewAIMaxConcurrentSteps?: number;
+	crewAIRequirePlanApproval?: boolean;
+	crewAIRequireStepApproval?: boolean;
 }
 
 export const defaultGlobalSettings: GlobalSettings = {
@@ -477,6 +481,10 @@ export const defaultGlobalSettings: GlobalSettings = {
 	autoAcceptLLMChanges: false,
 	hybridPlannerModel: undefined,
 	hybridCoderModel: undefined,
+	// CrewAI Coding Mode Defaults
+	crewAIMaxConcurrentSteps: 2,
+	crewAIRequirePlanApproval: true,
+	crewAIRequireStepApproval: true,
 }
 
 export type GlobalSettingName = keyof GlobalSettings
