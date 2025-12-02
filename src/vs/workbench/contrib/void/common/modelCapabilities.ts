@@ -73,9 +73,21 @@ export const defaultProviderSettings = {
 
 export const defaultModelsOfProvider = {
 	openAI: [ // https://platform.openai.com/docs/models/gp
+		'gpt-5.1',
+		'gpt-5',
+		'gpt-5-mini',
+		'gpt-5-mini-2025-08-07',
+		'gpt-5-nano',
+		'gpt-5-nano-2025-08-07',
+		'gpt-5.1-chat-latest',
+		'gpt-5-chat-latest',
+		'gpt-5.1-codex',
 		'gpt-4.1',
 		'gpt-4.1-mini',
+		'gpt-4.1-mini-2025-04-14',
 		'gpt-4.1-nano',
+		'gpt-4.1-nano-2025-04-14',
+		'gpt-4o-mini-2024-07-18',
 		'o3',
 		'o4-mini',
 		// 'o1',
@@ -523,13 +535,29 @@ const extensiveModelOptionsFallback: VoidStaticProviderInfo['modelOptionsFallbac
 
 	if (lower.includes('quasar') || lower.includes('quaser')) return toFallback(openSourceModelOptions_assumingOAICompat, 'quasar')
 
+	// GPT-5 models - ONLY mini/nano/codex/chat variants to avoid expensive base models
+	if (lower.includes('gpt-5-nano') && lower.includes('2025-08-07')) return toFallback(openAIModelOptions, 'gpt-5-nano-2025-08-07')
+	if (lower.includes('gpt-5-mini') && lower.includes('2025-08-07')) return toFallback(openAIModelOptions, 'gpt-5-mini-2025-08-07')
+	if (lower.includes('gpt') && lower.includes('5') && lower.includes('nano')) return toFallback(openAIModelOptions, 'gpt-5-nano')
+	if (lower.includes('gpt') && lower.includes('5') && lower.includes('mini')) return toFallback(openAIModelOptions, 'gpt-5-mini')
+	if (lower.includes('gpt') && lower.includes('5.1') && lower.includes('codex')) return toFallback(openAIModelOptions, 'gpt-5.1-codex')
+	if (lower.includes('gpt') && lower.includes('5.1') && lower.includes('chat')) return toFallback(openAIModelOptions, 'gpt-5.1-chat-latest')
+	if (lower.includes('gpt') && lower.includes('5') && lower.includes('chat')) return toFallback(openAIModelOptions, 'gpt-5-chat-latest')
+	// DO NOT fallback to expensive base models: gpt-5.1, gpt-5
+
+	// GPT-4.1 models - ONLY mini/nano/dated versions to avoid expensive base models
+	if (lower.includes('gpt-4.1-mini') && lower.includes('2025-04-14')) return toFallback(openAIModelOptions, 'gpt-4.1-mini-2025-04-14')
+	if (lower.includes('gpt-4.1-nano') && lower.includes('2025-04-14')) return toFallback(openAIModelOptions, 'gpt-4.1-nano-2025-04-14')
 	if (lower.includes('gpt') && lower.includes('mini') && (lower.includes('4.1') || lower.includes('4-1'))) return toFallback(openAIModelOptions, 'gpt-4.1-mini')
 	if (lower.includes('gpt') && lower.includes('nano') && (lower.includes('4.1') || lower.includes('4-1'))) return toFallback(openAIModelOptions, 'gpt-4.1-nano')
-	if (lower.includes('gpt') && (lower.includes('4.1') || lower.includes('4-1'))) return toFallback(openAIModelOptions, 'gpt-4.1')
+	// DO NOT fallback to expensive base model: gpt-4.1
 
+	// GPT-4o models - ONLY mini/dated versions to avoid expensive base models
+	if (lower.includes('gpt-4o-mini') && lower.includes('2024-07-18')) return toFallback(openAIModelOptions, 'gpt-4o-mini-2024-07-18')
 	if (lower.includes('4o') && lower.includes('mini')) return toFallback(openAIModelOptions, 'gpt-4o-mini')
-	if (lower.includes('4o')) return toFallback(openAIModelOptions, 'gpt-4o')
+	// DO NOT fallback to expensive base model: gpt-4o
 
+	// O-series reasoning models
 	if (lower.includes('o1') && lower.includes('mini')) return toFallback(openAIModelOptions, 'o1-mini')
 	if (lower.includes('o1')) return toFallback(openAIModelOptions, 'o1')
 	if (lower.includes('o3') && lower.includes('mini')) return toFallback(openAIModelOptions, 'o3-mini')
@@ -675,7 +703,101 @@ const anthropicSettings: VoidStaticProviderInfo = {
 
 
 // ---------------- OPENAI ----------------
+// NOTE: GPT-5 models have special API requirements:
+// - Use max_completion_tokens instead of max_tokens
+// - Only support default temperature (1.0), cannot set custom temperature
+// These are handled automatically in sendLLMMessage.impl.ts
 const openAIModelOptions = { // https://platform.openai.com/docs/pricing
+	'gpt-5.1': {
+		contextWindow: 128_000,
+		reservedOutputTokenSpace: 16_384,
+		cost: { input: 1.25, cache_read: 0.125, output: 10.00 },
+		downloadable: false,
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		supportsSystemMessage: 'developer-role',
+		reasoningCapabilities: false,
+	},
+	'gpt-5': {
+		contextWindow: 128_000,
+		reservedOutputTokenSpace: 16_384,
+		cost: { input: 1.25, cache_read: 0.125, output: 10.00 },
+		downloadable: false,
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		supportsSystemMessage: 'developer-role',
+		reasoningCapabilities: false,
+	},
+	'gpt-5-mini': {
+		contextWindow: 128_000,
+		reservedOutputTokenSpace: 16_384,
+		cost: { input: 0.25, cache_read: 0.025, output: 2.00 },
+		downloadable: false,
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		supportsSystemMessage: 'developer-role',
+		reasoningCapabilities: false,
+	},
+	'gpt-5-nano': {
+		contextWindow: 128_000,
+		reservedOutputTokenSpace: 16_384,
+		cost: { input: 0.05, cache_read: 0.005, output: 0.40 },
+		downloadable: false,
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		supportsSystemMessage: 'developer-role',
+		reasoningCapabilities: false,
+	},
+	'gpt-5.1-chat-latest': {
+		contextWindow: 128_000,
+		reservedOutputTokenSpace: 16_384,
+		cost: { input: 1.25, cache_read: 0.125, output: 10.00 },
+		downloadable: false,
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		supportsSystemMessage: 'developer-role',
+		reasoningCapabilities: false,
+	},
+	'gpt-5-chat-latest': {
+		contextWindow: 128_000,
+		reservedOutputTokenSpace: 16_384,
+		cost: { input: 1.25, cache_read: 0.125, output: 10.00 },
+		downloadable: false,
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		supportsSystemMessage: 'developer-role',
+		reasoningCapabilities: false,
+	},
+	'gpt-5.1-codex': {
+		contextWindow: 128_000,
+		reservedOutputTokenSpace: 16_384,
+		cost: { input: 1.25, cache_read: 0.125, output: 10.00 },
+		downloadable: false,
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		supportsSystemMessage: 'developer-role',
+		reasoningCapabilities: false,
+	},
+	'gpt-5-mini-2025-08-07': {
+		contextWindow: 128_000,
+		reservedOutputTokenSpace: 16_384,
+		cost: { input: 0.25, cache_read: 0.025, output: 2.00 },
+		downloadable: false,
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		supportsSystemMessage: 'developer-role',
+		reasoningCapabilities: false,
+	},
+	'gpt-5-nano-2025-08-07': {
+		contextWindow: 128_000,
+		reservedOutputTokenSpace: 16_384,
+		cost: { input: 0.05, cache_read: 0.005, output: 0.40 },
+		downloadable: false,
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		supportsSystemMessage: 'developer-role',
+		reasoningCapabilities: false,
+	},
 	'o3': {
 		contextWindow: 1_047_576,
 		reservedOutputTokenSpace: 32_768,
@@ -724,6 +846,36 @@ const openAIModelOptions = { // https://platform.openai.com/docs/pricing
 		supportsFIM: false,
 		specialToolFormat: 'openai-style',
 		supportsSystemMessage: 'developer-role',
+		reasoningCapabilities: false,
+	},
+	'gpt-4.1-mini-2025-04-14': {
+		contextWindow: 1_047_576,
+		reservedOutputTokenSpace: 32_768,
+		cost: { input: 0.40, output: 1.60, cache_read: 0.10 },
+		downloadable: false,
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		supportsSystemMessage: 'developer-role',
+		reasoningCapabilities: false,
+	},
+	'gpt-4.1-nano-2025-04-14': {
+		contextWindow: 1_047_576,
+		reservedOutputTokenSpace: 32_768,
+		cost: { input: 0.10, output: 0.40, cache_read: 0.03 },
+		downloadable: false,
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		supportsSystemMessage: 'developer-role',
+		reasoningCapabilities: false,
+	},
+	'gpt-4o-mini-2024-07-18': {
+		contextWindow: 128_000,
+		reservedOutputTokenSpace: 16_384,
+		cost: { input: 0.15, cache_read: 0.075, output: 0.60 },
+		downloadable: false,
+		supportsFIM: false,
+		specialToolFormat: 'openai-style',
+		supportsSystemMessage: 'system-role',
 		reasoningCapabilities: false,
 	},
 	'o1': {
@@ -791,9 +943,33 @@ const openAISettings: VoidStaticProviderInfo = {
 	modelOptionsFallback: (modelName) => {
 		const lower = modelName.toLowerCase()
 		let fallbackName: keyof typeof openAIModelOptions | null = null
-		if (lower.includes('o1')) { fallbackName = 'o1' }
-		if (lower.includes('o3-mini')) { fallbackName = 'o3-mini' }
-		if (lower.includes('gpt-4o')) { fallbackName = 'gpt-4o' }
+
+		// GPT-5 models - ONLY mini/nano/dated versions to avoid expensive base models
+		if (lower.includes('gpt-5-nano') && lower.includes('2025-08-07')) { fallbackName = 'gpt-5-nano-2025-08-07' }
+		else if (lower.includes('gpt-5-mini') && lower.includes('2025-08-07')) { fallbackName = 'gpt-5-mini-2025-08-07' }
+		else if (lower.includes('gpt-5') && lower.includes('nano')) { fallbackName = 'gpt-5-nano' }
+		else if (lower.includes('gpt-5') && lower.includes('mini')) { fallbackName = 'gpt-5-mini' }
+		else if (lower.includes('gpt-5.1') && lower.includes('codex')) { fallbackName = 'gpt-5.1-codex' }
+		else if (lower.includes('gpt-5.1') && lower.includes('chat')) { fallbackName = 'gpt-5.1-chat-latest' }
+		else if (lower.includes('gpt-5') && lower.includes('chat')) { fallbackName = 'gpt-5-chat-latest' }
+		// DO NOT fallback to expensive base models: gpt-5.1, gpt-5
+
+		// GPT-4.1 models - ONLY mini/nano/dated versions to avoid expensive base models
+		else if (lower.includes('gpt-4.1-mini') && lower.includes('2025-04-14')) { fallbackName = 'gpt-4.1-mini-2025-04-14' }
+		else if (lower.includes('gpt-4.1-nano') && lower.includes('2025-04-14')) { fallbackName = 'gpt-4.1-nano-2025-04-14' }
+		else if (lower.includes('gpt-4.1') && lower.includes('mini')) { fallbackName = 'gpt-4.1-mini' }
+		else if (lower.includes('gpt-4.1') && lower.includes('nano')) { fallbackName = 'gpt-4.1-nano' }
+		// DO NOT fallback to expensive base model: gpt-4.1
+
+		// GPT-4o models - ONLY mini/dated versions to avoid expensive base models
+		else if (lower.includes('gpt-4o-mini') && lower.includes('2024-07-18')) { fallbackName = 'gpt-4o-mini-2024-07-18' }
+		else if (lower.includes('gpt-4o-mini')) { fallbackName = 'gpt-4o-mini' }
+		// DO NOT fallback to expensive base model: gpt-4o
+
+		// Existing reasoning models
+		else if (lower.includes('o1')) { fallbackName = 'o1' }
+		else if (lower.includes('o3-mini')) { fallbackName = 'o3-mini' }
+
 		if (fallbackName) return { modelName: fallbackName, recognizedModelName: fallbackName, ...openAIModelOptions[fallbackName] }
 		return null
 	},
@@ -805,7 +981,7 @@ const openAISettings: VoidStaticProviderInfo = {
 // ---------------- XAI ----------------
 const xAIModelOptions = {
 	// https://docs.x.ai/docs/models - Updated 2025-11-29 (complete list from official docs)
-	
+
 	// Grok 4.1 Fast - 2M context, optimized for agentic tool calling
 	'grok-4-1-fast-reasoning': {
 		contextWindow: 2_000_000, // 2M tokens, 4M tpm, 480 rpm
@@ -827,7 +1003,7 @@ const xAIModelOptions = {
 		specialToolFormat: 'openai-style',
 		reasoningCapabilities: false,
 	},
-	
+
 	// Grok 4 Fast - 2M context
 	'grok-4-fast-reasoning': {
 		contextWindow: 2_000_000, // 2M tokens, 4M tpm, 480 rpm
@@ -849,7 +1025,7 @@ const xAIModelOptions = {
 		specialToolFormat: 'openai-style',
 		reasoningCapabilities: false,
 	},
-	
+
 	// Grok Code Fast 1 - Optimized for coding
 	'grok-code-fast-1': {
 		contextWindow: 256_000, // 256K tokens, 2M tpm, 480 rpm
@@ -861,7 +1037,7 @@ const xAIModelOptions = {
 		specialToolFormat: 'openai-style',
 		reasoningCapabilities: false,
 	},
-	
+
 	// Grok 4-0709 - Older Grok 4 snapshot
 	'grok-4-0709': {
 		contextWindow: 256_000, // 256K tokens, 2M tpm, 480 rpm
@@ -873,7 +1049,7 @@ const xAIModelOptions = {
 		specialToolFormat: 'openai-style',
 		reasoningCapabilities: false,
 	},
-	
+
 	// Grok 3 Mini - Affordable with reasoning
 	'grok-3-mini': {
 		contextWindow: 131_072, // 131K tokens, 480 rpm
@@ -885,7 +1061,7 @@ const xAIModelOptions = {
 		specialToolFormat: 'openai-style',
 		reasoningCapabilities: { supportsReasoning: true, canTurnOffReasoning: false, canIOReasoning: false, reasoningSlider: { type: 'effort_slider', values: ['low', 'high'], default: 'low' } },
 	},
-	
+
 	// Grok 3 - Standard model
 	'grok-3': {
 		contextWindow: 131_072, // 131K tokens, 600 rpm
@@ -897,7 +1073,7 @@ const xAIModelOptions = {
 		specialToolFormat: 'openai-style',
 		reasoningCapabilities: false,
 	},
-	
+
 	// Grok 2 Vision - Multimodal vision model
 	'grok-2-vision-1212': {
 		contextWindow: 32_768, // 32K tokens, 600 rpm (us-east-1 and eu-west-1 available)
@@ -916,7 +1092,7 @@ const xAISettings: VoidStaticProviderInfo = {
 	modelOptionsFallback: (modelName) => {
 		const lower = modelName.toLowerCase()
 		let fallbackName: keyof typeof xAIModelOptions | null = null
-		
+
 		// Grok 4.1 models (2M context, optimized for agentic tool calling)
 		if (lower.includes('grok-4-1') || lower.includes('grok-4.1')) {
 			if (lower.includes('non-reasoning') || lower.includes('nonreasoning')) {
@@ -960,7 +1136,7 @@ const xAISettings: VoidStaticProviderInfo = {
 		else if (lower.includes('grok')) {
 			fallbackName = 'grok-4-1-fast-reasoning'
 		}
-		
+
 		if (fallbackName) return { modelName: fallbackName, recognizedModelName: fallbackName, ...xAIModelOptions[fallbackName] }
 		return null
 	},

@@ -301,13 +301,29 @@ const _sendOpenAICompatibleChat = async ({ messages, onText, onFinalMessage, onE
 		// Required to select the model
 		(openai as AzureOpenAI).deploymentName = modelName;
 	}
-	const options: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming = {
+	let options: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming = {
 		model: modelName,
 		messages: messages as any,
 		stream: true,
 		...nativeToolsObj,
 		...additionalOpenAIPayload
 		// max_completion_tokens: maxTokens,
+	}
+
+	// GPT-5 models require special handling
+	const isGPT5Model = modelName.toLowerCase().includes('gpt-5')
+	if (isGPT5Model && providerName === 'openAI') {
+		// GPT-5 models use max_completion_tokens instead of max_tokens
+		const optionsAny = options as any
+		if (optionsAny.max_tokens) {
+			optionsAny.max_completion_tokens = optionsAny.max_tokens
+			delete optionsAny.max_tokens
+		}
+		// GPT-5 models only support default temperature (1.0)
+		// Remove temperature parameter if set
+		if (optionsAny.temperature !== undefined) {
+			delete optionsAny.temperature
+		}
 	}
 
 	// open source models - manually parse think tokens
