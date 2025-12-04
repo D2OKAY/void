@@ -162,7 +162,7 @@ const AddButton = ({ disabled, text = 'Add', ...props }: { disabled?: boolean, t
 
 	return <button
 		disabled={disabled}
-		className={`bg-[#0e70c0] px-3 py-1 text-white rounded-sm ${!disabled ? 'hover:bg-[#1177cb] cursor-pointer' : 'opacity-50 cursor-not-allowed bg-opacity-70'}`}
+		className={`bg-primary px-3 py-1 text-primary-foreground font-medium rounded-sm ${!disabled ? 'hover:brightness-110 cursor-pointer' : 'opacity-50 cursor-not-allowed bg-opacity-70'}`}
 		{...props}
 	>{text}</button>
 
@@ -384,11 +384,11 @@ const SimpleModelSettingsDialog = ({
 					<VoidButtonBgDarken onClick={onClose} className="px-3 py-1">
 						Cancel
 					</VoidButtonBgDarken>
-					<VoidButtonBgDarken
-						onClick={onSave}
-						className="px-3 py-1 bg-[#0e70c0] text-white"
-					>
-						Save
+				<VoidButtonBgDarken
+					onClick={onSave}
+					className="px-3 py-1 bg-primary text-primary-foreground font-medium"
+				>
+					Save
 					</VoidButtonBgDarken>
 				</div>
 			</div>
@@ -481,16 +481,16 @@ export const ModelDump = ({ filteredProviders }: { filteredProviders?: ProviderN
 			)
 
 
-			const detailAboutModel = type === 'autodetected' ?
-				<Asterisk size={14} className="inline-block align-text-top brightness-115 stroke-[2] text-[#0e70c0]" data-tooltip-id='void-tooltip' data-tooltip-place='right' data-tooltip-content='Detected locally' />
-				: type === 'custom' ?
-					<Asterisk size={14} className="inline-block align-text-top brightness-115 stroke-[2] text-[#0e70c0]" data-tooltip-id='void-tooltip' data-tooltip-place='right' data-tooltip-content='Custom model' />
-					: undefined
+		const detailAboutModel = type === 'autodetected' ?
+			<Asterisk size={14} className="inline-block align-text-top brightness-115 stroke-[2] text-primary" data-tooltip-id='void-tooltip' data-tooltip-place='right' data-tooltip-content='Detected locally' />
+			: type === 'custom' ?
+				<Asterisk size={14} className="inline-block align-text-top brightness-115 stroke-[2] text-primary" data-tooltip-id='void-tooltip' data-tooltip-place='right' data-tooltip-content='Custom model' />
+				: undefined
 
 			const hasOverrides = !!settingsState.overridesOfModel?.[providerName]?.[modelName]
 
 			return <div key={`${modelName}${providerName}`}
-				className={`flex items-center justify-between gap-4 hover:bg-black/10 dark:hover:bg-gray-300/10 py-1 px-3 rounded-sm overflow-hidden cursor-default truncate group
+				className={`flex items-center justify-between gap-4 hover:bg-accent py-1 px-3 rounded-sm overflow-hidden cursor-default truncate group
 				`}
 			>
 				{/* left part is width:full */}
@@ -550,11 +550,11 @@ export const ModelDump = ({ filteredProviders }: { filteredProviders?: ProviderN
 		})}
 
 		{/* Add Model Section */}
-		{showCheckmark ? (
-			<div className="mt-4">
-				<AnimatedCheckmarkButton text='Added' className="bg-[#0e70c0] text-white px-3 py-1 rounded-sm" />
-			</div>
-		) : isAddModelOpen ? (
+	{showCheckmark ? (
+		<div className="mt-4">
+			<AnimatedCheckmarkButton text='Added' className="bg-primary text-primary-foreground font-medium px-3 py-1 rounded-sm" />
+		</div>
+	) : isAddModelOpen ? (
 			<div className="mt-4">
 				<form className="flex items-center gap-2">
 
@@ -1172,8 +1172,8 @@ export const Settings = () => {
 								className={`
           py-2 px-4 rounded-md text-left transition-all duration-200
           ${selectedSection === tab
-										? 'bg-[#0e70c0]/80 text-white font-medium shadow-sm'
-										: 'bg-void-bg-2 hover:bg-void-bg-2/80 text-void-fg-1'}
+										? 'bg-primary text-primary-foreground font-medium shadow-sm shadow-primary/20'
+										: 'bg-void-bg-2 hover:bg-void-bg-2-hover text-void-fg-1'}
         `}
 							>
 								{label}
@@ -1334,7 +1334,7 @@ export const Settings = () => {
 														{settingsState._modelOptions.length > 0 ? (
 															<VoidCustomDropdownBox
 																options={settingsState._modelOptions}
-																selectedOption={settingsState._modelOptions.find(opt => 
+																selectedOption={settingsState._modelOptions.find(opt =>
 																	settingsState.modelSelectionOfFeature.HybridPlanner &&
 																	opt.selection.providerName === settingsState.modelSelectionOfFeature.HybridPlanner.providerName &&
 																	opt.selection.modelName === settingsState.modelSelectionOfFeature.HybridPlanner.modelName
@@ -1359,7 +1359,7 @@ export const Settings = () => {
 														{settingsState._modelOptions.length > 0 ? (
 															<VoidCustomDropdownBox
 																options={settingsState._modelOptions}
-																selectedOption={settingsState._modelOptions.find(opt => 
+																selectedOption={settingsState._modelOptions.find(opt =>
 																	settingsState.modelSelectionOfFeature.HybridCoder &&
 																	opt.selection.providerName === settingsState.modelSelectionOfFeature.HybridCoder.providerName &&
 																	opt.selection.modelName === settingsState.modelSelectionOfFeature.HybridCoder.modelName

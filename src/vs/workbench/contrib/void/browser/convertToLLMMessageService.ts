@@ -602,14 +602,14 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 	private _calculateBrainTokenBudget(): number {
 		const modelSelection = this.voidSettingsService.state.modelSelectionOfFeature['Chat']
 		if (!modelSelection) return 5_000
-		
+
 		const { overridesOfModel } = this.voidSettingsService.state
 		const { providerName, modelName } = modelSelection
 		const { contextWindow } = getModelCapabilities(providerName, modelName, overridesOfModel)
 		const modelOptions = this.voidSettingsService.state.optionsOfModelSelection['Chat'][providerName]?.[modelName]
-		
+
 		const profile = getSmallModelProfile(providerName, modelName, contextWindow, modelOptions?.enableSmallModelOptimizations)
-		
+
 		return profile.maxBrainChars
 	}
 
@@ -624,25 +624,25 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 		// Get current model selection to determine optimization profile
 		const modelSelection = this.voidSettingsService.state.modelSelectionOfFeature['Chat']
 		const { overridesOfModel } = this.voidSettingsService.state
-		
+
 		// Determine small model profile
 		let useCompact = false
 		let maxTools: number | undefined = undefined
 		let maxChars = 10_000 // default
-		
+
 		if (modelSelection) {
 			const { providerName, modelName } = modelSelection
 			const { contextWindow } = getModelCapabilities(providerName, modelName, overridesOfModel)
 			const modelOptions = this.voidSettingsService.state.optionsOfModelSelection['Chat'][providerName]?.[modelName]
 			const profile = getSmallModelProfile(providerName, modelName, contextWindow, modelOptions?.enableSmallModelOptimizations)
-			
+
 			useCompact = profile.useCompactPrompts
 			maxTools = profile.maxToolsInPrompt
 			maxChars = profile.maxDirStrChars
 		}
 
 		const directoryStr = await this.directoryStrService.getAllDirectoriesStr({
-			cutOffMessage: chatMode === 'agent' || chatMode === 'gather' ?
+			cutOffMessage: chatMode === 'agent' || chatMode === 'plan' ?
 				`...Directories string cut off, use tools to read more...`
 				: `...Directories string cut off, ask user for more if necessary...`,
 			maxChars
@@ -653,14 +653,14 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 		const mcpTools = this.mcpService.getMCPTools()
 
 		const persistentTerminalIDs = this.terminalToolService.listPersistentTerminalIds()
-		const systemMessage = chat_systemMessage({ 
-			workspaceFolders, 
-			openedURIs, 
-			directoryStr, 
-			activeURI, 
-			persistentTerminalIDs, 
-			chatMode, 
-			mcpTools, 
+		const systemMessage = chat_systemMessage({
+			workspaceFolders,
+			openedURIs,
+			directoryStr,
+			activeURI,
+			persistentTerminalIDs,
+			chatMode,
+			mcpTools,
 			includeXMLToolDefinitions,
 			useCompact,
 			maxTools
@@ -724,7 +724,7 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 
 		const isReasoningEnabled = getIsReasoningEnabledState(featureName, providerName, modelName, modelSelectionOptions, overridesOfModel)
 		const reservedOutputTokenSpace = getReservedOutputTokenSpace(providerName, modelName, { isReasoningEnabled, overridesOfModel })
-		
+
 		// Get small model profile for output reservation
 		const profile = getSmallModelProfile(providerName, modelName, contextWindow, modelSelectionOptions?.enableSmallModelOptimizations)
 		const outputTokenReservationRatio = profile.outputTokenReservationRatio
@@ -767,7 +767,7 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 		const isReasoningEnabled = getIsReasoningEnabledState('Chat', providerName, modelName, modelSelectionOptions, overridesOfModel)
 		const reservedOutputTokenSpace = getReservedOutputTokenSpace(providerName, modelName, { isReasoningEnabled, overridesOfModel })
 		const llmMessages = this._chatMessagesToSimpleMessages(chatMessages)
-		
+
 		// Get small model profile for output reservation
 		const profile = getSmallModelProfile(providerName, modelName, contextWindow, modelSelectionOptions?.enableSmallModelOptimizations)
 		const outputTokenReservationRatio = profile.outputTokenReservationRatio

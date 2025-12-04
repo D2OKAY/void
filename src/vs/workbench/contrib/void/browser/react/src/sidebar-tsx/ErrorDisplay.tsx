@@ -28,17 +28,17 @@ export const ErrorDisplay = ({
 	const message = message_ + ''
 
 	return (
-		<div className={`rounded-lg border border-red-200 bg-red-50 p-4 overflow-auto`}>
+		<div className={`rounded-lg border border-destructive/30 bg-destructive/10 p-4 overflow-auto`}>
 			{/* Header */}
 			<div className='flex items-start justify-between'>
 				<div className='flex gap-3'>
-					<AlertCircle className='h-5 w-5 text-red-600 mt-0.5' />
+					<AlertCircle className='h-5 w-5 text-destructive mt-0.5' />
 					<div className='flex-1'>
-						<h3 className='font-semibold text-red-800'>
+						<h3 className='font-semibold text-destructive'>
 							{/* eg Error */}
 							Error
 						</h3>
-						<p className='text-red-700 mt-1'>
+						<p className='text-destructive/90 mt-1'>
 							{/* eg Something went wrong */}
 							{message}
 						</p>
@@ -47,7 +47,7 @@ export const ErrorDisplay = ({
 
 				<div className='flex gap-2'>
 					{isExpandable && (
-						<button className='text-red-600 hover:text-red-800 p-1 rounded'
+						<button className='text-destructive hover:text-destructive/80 p-1 rounded hover:bg-destructive/10 transition-colors'
 							onClick={() => setIsExpanded(!isExpanded)}
 						>
 							{isExpanded ? (
@@ -58,7 +58,7 @@ export const ErrorDisplay = ({
 						</button>
 					)}
 					{showDismiss && onDismiss && (
-						<button className='text-red-600 hover:text-red-800 p-1 rounded'
+						<button className='text-destructive hover:text-destructive/80 p-1 rounded hover:bg-destructive/10 transition-colors'
 							onClick={onDismiss}
 						>
 							<X className='h-5 w-5' />
@@ -69,10 +69,10 @@ export const ErrorDisplay = ({
 
 			{/* Expandable Details */}
 			{isExpanded && details && (
-				<div className='mt-4 space-y-3 border-t border-red-200 pt-3 overflow-auto'>
+				<div className='mt-4 space-y-3 border-t border-destructive/20 pt-3 overflow-auto'>
 					<div>
-						<span className='font-semibold text-red-800'>Full Error: </span>
-						<pre className='text-red-700'>{details}</pre>
+						<span className='font-semibold text-destructive'>Full Error: </span>
+						<pre className='text-destructive/80'>{details}</pre>
 					</div>
 				</div>
 			)}

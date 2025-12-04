@@ -13,9 +13,12 @@ export type HybridPlan = {
 	summary: string
 	createdAt: string
 	createdBy: string
+	planType: 'hybrid-execution' | 'plan-mode' | 'user-saved'
 	steps: HybridPlanStep[]
 	isTemplate: boolean
 	projectPath?: string
+	conversationId?: string
+	tags?: string[]
 }
 
 export type HybridExecutionState = {

@@ -17,7 +17,7 @@ import { editorWidgetBackground } from './editorColors.js';
 // ----- input
 
 export const inputBackground = registerColor('input.background',
-	{ dark: '#3C3C3C', light: Color.white, hcDark: Color.black, hcLight: Color.white },
+	{ dark: '#191A1E', light: Color.white, hcDark: Color.black, hcLight: Color.white },
 	nls.localize('inputBoxBackground', "Input box background."));
 
 export const inputForeground = registerColor('input.foreground',
@@ -91,7 +91,7 @@ export const inputValidationErrorBorder = registerColor('inputValidation.errorBo
 // ----- select
 
 export const selectBackground = registerColor('dropdown.background',
-	{ dark: '#3C3C3C', light: Color.white, hcDark: Color.black, hcLight: Color.white },
+	{ dark: '#191A1E', light: Color.white, hcDark: Color.black, hcLight: Color.white },
 	nls.localize('dropdownBackground', "Dropdown background."));
 
 export const selectListBackground = registerColor('dropdown.listBackground',
@@ -118,7 +118,7 @@ export const buttonSeparator = registerColor('button.separator',
 	nls.localize('buttonSeparator', "Button separator color."));
 
 export const buttonBackground = registerColor('button.background',
-	{ dark: '#0E639C', light: '#007ACC', hcDark: null, hcLight: '#0F4A85' },
+	{ dark: '#FF3D6A', light: '#007ACC', hcDark: null, hcLight: '#0F4A85' },
 	nls.localize('buttonBackground', "Button background color."));
 
 export const buttonHoverBackground = registerColor('button.hoverBackground',

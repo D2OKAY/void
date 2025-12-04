@@ -46,35 +46,77 @@ module.exports = {
 				'8xl': '64px',
 				'9xl': '72px',
 			},
-			// common colors to use, ordered light to dark
+		// common colors to use, ordered light to dark
 
-			colors: {
-				'void-bg-1': 'var(--void-bg-1)',
-				'void-bg-1-alt': 'var(--void-bg-1-alt)',
-				'void-bg-2': 'var(--void-bg-2)',
-				'void-bg-2-alt': 'var(--void-bg-2-alt)',
-				'void-bg-2-hover': 'var(--void-bg-2-hover)',
-				'void-bg-3': 'var(--void-bg-3)',
+		// shadcn/ui HSL color system
+		colors: {
+			border: 'hsl(var(--border))',
+			input: 'hsl(var(--input))',
+			ring: 'hsl(var(--ring))',
+			background: 'hsl(var(--background))',
+			foreground: 'hsl(var(--foreground))',
+			primary: {
+				DEFAULT: 'hsl(var(--primary))',
+				foreground: 'hsl(var(--primary-foreground))',
+			},
+			secondary: {
+				DEFAULT: 'hsl(var(--secondary))',
+				foreground: 'hsl(var(--secondary-foreground))',
+			},
+			destructive: {
+				DEFAULT: 'hsl(var(--destructive))',
+				foreground: 'hsl(var(--destructive-foreground))',
+			},
+			muted: {
+				DEFAULT: 'hsl(var(--muted))',
+				foreground: 'hsl(var(--muted-foreground))',
+			},
+			accent: {
+				DEFAULT: 'hsl(var(--accent))',
+				foreground: 'hsl(var(--accent-foreground))',
+			},
+			popover: {
+				DEFAULT: 'hsl(var(--popover))',
+				foreground: 'hsl(var(--popover-foreground))',
+			},
+			card: {
+				DEFAULT: 'hsl(var(--card))',
+				foreground: 'hsl(var(--card-foreground))',
+			},
 
+			// Legacy Void colors (mapped to new system)
+			'void-bg-1': 'var(--void-bg-1)',
+			'void-bg-1-alt': 'var(--void-bg-1-alt)',
+			'void-bg-2': 'var(--void-bg-2)',
+			'void-bg-2-alt': 'var(--void-bg-2-alt)',
+			'void-bg-2-hover': 'var(--void-bg-2-hover)',
+			'void-bg-3': 'var(--void-bg-3)',
 
-				'void-fg-0': 'var(--void-fg-0)',
-				'void-fg-1': 'var(--void-fg-1)',
-				'void-fg-2': 'var(--void-fg-2)',
-				'void-fg-3': 'var(--void-fg-3)',
-				// 'void-fg-4': 'var(--vscode-tab-inactiveForeground)',
-				'void-fg-4': 'var(--void-fg-4)',
+			'void-fg-0': 'var(--void-fg-0)',
+			'void-fg-1': 'var(--void-fg-1)',
+			'void-fg-2': 'var(--void-fg-2)',
+			'void-fg-3': 'var(--void-fg-3)',
+			'void-fg-4': 'var(--void-fg-4)',
 
-				'void-warning': 'var(--void-warning)',
+			'void-warning': 'var(--void-warning)',
 
-				'void-border-1': 'var(--void-border-1)',
-				'void-border-2': 'var(--void-border-2)',
-				'void-border-3': 'var(--void-border-3)',
-				'void-border-4': 'var(--void-border-4)',
+			'void-border-1': 'var(--void-border-1)',
+			'void-border-2': 'var(--void-border-2)',
+			'void-border-3': 'var(--void-border-3)',
+			'void-border-4': 'var(--void-border-4)',
 
-				'void-ring-color': 'var(--void-ring-color)',
-				'void-link-color': 'var(--void-link-color)',
+			'void-ring-color': 'var(--void-ring-color)',
+			'void-link-color': 'var(--void-link-color)',
 
-				vscode: {
+			chart: {
+				'1': 'hsl(var(--chart-1))',
+				'2': 'hsl(var(--chart-2))',
+				'3': 'hsl(var(--chart-3))',
+				'4': 'hsl(var(--chart-4))',
+				'5': 'hsl(var(--chart-5))',
+			},
+
+			vscode: {
 					// see: https://code.visualstudio.com/api/extension-guides/webview#theming-webview-content
 
 					// base colors
@@ -190,10 +232,15 @@ module.exports = {
 				},
 			},
 		},
+		borderRadius: {
+			lg: 'var(--radius)',
+			md: 'calc(var(--radius) - 2px)',
+			sm: 'calc(var(--radius) - 4px)',
+		},
 	},
 	plugins: [
 		require('@tailwindcss/typography')
 	],
-	prefix: 'void-'
+	prefix: 'void-',
 }
 

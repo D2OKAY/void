@@ -304,9 +304,14 @@ class VoidSettingsService extends Disposable implements IVoidSettingsService {
 			}
 			// add disableSystemMessage feature
 			if (readS.globalSettings.disableSystemMessage === undefined) readS.globalSettings.disableSystemMessage = false;
-			
+
 			// add autoAcceptLLMChanges feature
 			if (readS.globalSettings.autoAcceptLLMChanges === undefined) readS.globalSettings.autoAcceptLLMChanges = false;
+
+			// MIGRATION: 'gather' → 'plan' mode (Plan mode implementation)
+			if (readS.globalSettings.chatMode === 'gather' as any) {
+				readS.globalSettings.chatMode = 'plan'
+			}
 		}
 		catch (e) {
 			readS = defaultState()

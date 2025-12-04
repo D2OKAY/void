@@ -184,6 +184,7 @@ export class HybridAgentService extends Disposable implements IHybridAgentServic
 						summary: parsed.summary,
 						createdAt: new Date().toISOString(),
 						createdBy: plannerModel.modelName,
+						planType: 'hybrid-execution',
 						steps: parsed.steps,
 						isTemplate: false
 					};

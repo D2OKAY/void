@@ -6,25 +6,44 @@
 import { Color, RGBA } from '../../../../../base/common/color.js';
 import { registerColor } from '../../../../../platform/theme/common/colorUtils.js';
 
-// editCodeService colors
-const sweepBG = new Color(new RGBA(100, 100, 100, .2));
-const highlightBG = new Color(new RGBA(100, 100, 100, .1));
-const sweepIdxBG = new Color(new RGBA(100, 100, 100, .5));
+/*
+ * Color System Alignment
+ * ----------------------
+ * These colors correspond to CSS variables defined in styles.css:
+ * - Primary accent: #FF3D6A (HSL 346 100% 62%) = --primary
+ * - Primary darker: #C82850 = destructive variant
+ * - Border color: #1C1D21 (HSL 220 8% 12%) = --border
+ * - Text color: #E8E9EC (HSL 220 10% 92%) = --foreground
+ *
+ * When updating colors, ensure consistency with both files.
+ */
 
-const acceptBG = new Color(new RGBA(155, 185, 85, .1)); // default is RGBA(155, 185, 85, .2)
-const rejectBG = new Color(new RGBA(255, 0, 0, .1)); // default is RGBA(255, 0, 0, .2)
+// Semantic color constants (keep in sync with styles.css)
+const PRIMARY_HEX = '#FF3D6A'; // --primary: 346 100% 62%
+const PRIMARY_DARKER_HEX = '#C82850'; // Darker variant for reject actions
+const MUTED_GRAY = { r: 120, g: 125, b: 130 }; // Neutral gray for highlights
 
-// Widget colors
-export const acceptAllBg = 'rgb(30, 133, 56)'
-export const acceptBg = 'rgb(26, 116, 48)'
-export const acceptBorder = '1px solid rgb(20, 86, 38)'
+// editCodeService colors - Warm charcoal tones for dark background
+const sweepBG = new Color(new RGBA(MUTED_GRAY.r, MUTED_GRAY.g, MUTED_GRAY.b, .25));
+const highlightBG = new Color(new RGBA(MUTED_GRAY.r, MUTED_GRAY.g, MUTED_GRAY.b, .15));
+const sweepIdxBG = new Color(new RGBA(MUTED_GRAY.r, MUTED_GRAY.g, MUTED_GRAY.b, .6));
 
-export const rejectAllBg = 'rgb(207, 40, 56)'
-export const rejectBg = 'rgb(180, 35, 49)'
-export const rejectBorder = '1px solid rgb(142, 28, 39)'
+// Accept/reject editor decoration backgrounds (with transparency)
+const acceptBG = new Color(new RGBA(255, 61, 106, .15)); // Primary color with transparency
+const rejectBG = new Color(new RGBA(200, 40, 80, .15)); // Darker red with transparency
 
-export const buttonFontSize = '11px'
-export const buttonTextColor = 'white'
+// Widget colors - Uses primary accent for accept, darker variant for reject
+// These match --primary (#FF3D6A) from the CSS design system
+export const acceptAllBg = PRIMARY_HEX;
+export const acceptBg = PRIMARY_HEX;
+export const acceptBorder = `1px solid ${PRIMARY_HEX}`;
+
+export const rejectAllBg = PRIMARY_DARKER_HEX;
+export const rejectBg = PRIMARY_DARKER_HEX;
+export const rejectBorder = `1px solid ${PRIMARY_DARKER_HEX}`;
+
+export const buttonFontSize = '11px';
+export const buttonTextColor = '#E8E9EC'; // --foreground
 
 
 

@@ -156,11 +156,11 @@ const AddProvidersPage = ({ pageIndex, setPageIndex }: { pageIndex: number, setP
 			<div className="flex md:flex-col gap-2">
 				{[...tabNames, 'Cloud/Other'].map(tab => (
 					<button
-						key={tab}
-						className={`py-2 px-4 rounded-md text-left ${currentTab === tab
-							? 'bg-[#0e70c0]/80 text-white font-medium shadow-sm'
-							: 'bg-void-bg-2 hover:bg-void-bg-2/80 text-void-fg-1'
-							} transition-all duration-200`}
+					key={tab}
+					className={`py-2 px-4 rounded-md text-left ${currentTab === tab
+						? 'bg-primary text-primary-foreground font-medium shadow-sm shadow-primary/20'
+						: 'bg-void-bg-2 hover:bg-void-bg-2-hover text-void-fg-1'
+						} transition-all duration-200`}
 						onClick={() => {
 							setCurrentTab(tab as TabName);
 							setErrorMessage(null); // Reset error message when changing tabs

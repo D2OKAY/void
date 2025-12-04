@@ -91,3 +91,28 @@ import '../common/voidUpdateService.js'
 
 // model service
 import '../common/voidModelService.js'
+
+// Register plan mode commands
+import { registerAction2, Action2 } from '../../../../platform/actions/common/actions.js'
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js'
+import { ICommandService } from '../../../../platform/commands/common/commands.js'
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js'
+import { URI } from '../../../../base/common/uri.js'
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: 'void.openPlansFolder',
+			title: 'Open Plans Folder',
+			category: 'Void'
+		})
+	}
+	async run(accessor: ServicesAccessor) {
+		const workspaceContextService = accessor.get(IWorkspaceContextService)
+		const commandService = accessor.get(ICommandService)
+		const folders = workspaceContextService.getWorkspace().folders
+		if (folders.length === 0) return
+		const plansFolder = URI.joinPath(folders[0].uri, '.void', 'plans')
+		await commandService.executeCommand('revealFileInOS', plansFolder)
+	}
+})

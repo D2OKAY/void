@@ -17,11 +17,11 @@ import { scrollbarShadow, badgeBackground } from './miscColors.js';
 // ----- editor
 
 export const editorBackground = registerColor('editor.background',
-	{ light: '#ffffff', dark: '#1E1E1E', hcDark: Color.black, hcLight: Color.white },
+	{ light: '#ffffff', dark: '#09090B', hcDark: Color.black, hcLight: Color.white },
 	nls.localize('editorBackground', "Editor background color."));
 
 export const editorForeground = registerColor('editor.foreground',
-	{ light: '#333333', dark: '#BBBBBB', hcDark: Color.white, hcLight: foreground },
+	{ light: '#333333', dark: '#E8E9EC', hcDark: Color.white, hcLight: foreground },
 	nls.localize('editorForeground', "Editor default foreground color."));
 
 
@@ -30,7 +30,7 @@ export const editorStickyScrollBackground = registerColor('editorStickyScroll.ba
 	nls.localize('editorStickyScrollBackground', "Background color of sticky scroll in the editor"));
 
 export const editorStickyScrollHoverBackground = registerColor('editorStickyScrollHover.background',
-	{ dark: '#2A2D2E', light: '#F0F0F0', hcDark: null, hcLight: Color.fromHex('#0F4A85').transparent(0.1) },
+	{ dark: '#191A1E', light: '#F0F0F0', hcDark: null, hcLight: Color.fromHex('#0F4A85').transparent(0.1) },
 	nls.localize('editorStickyScrollHoverBackground', "Background color of sticky scroll on hover in the editor"));
 
 export const editorStickyScrollBorder = registerColor('editorStickyScroll.border',
@@ -43,7 +43,7 @@ export const editorStickyScrollShadow = registerColor('editorStickyScroll.shadow
 
 
 export const editorWidgetBackground = registerColor('editorWidget.background',
-	{ dark: '#252526', light: '#F3F3F3', hcDark: '#0C141F', hcLight: Color.white },
+	{ dark: '#0F0F11', light: '#F3F3F3', hcDark: '#0C141F', hcLight: Color.white },
 	nls.localize('editorWidgetBackground', 'Background color of editor widgets, such as find/replace.'));
 
 export const editorWidgetForeground = registerColor('editorWidget.foreground',
@@ -51,7 +51,7 @@ export const editorWidgetForeground = registerColor('editorWidget.foreground',
 	nls.localize('editorWidgetForeground', 'Foreground color of editor widgets, such as find/replace.'));
 
 export const editorWidgetBorder = registerColor('editorWidget.border',
-	{ dark: '#454545', light: '#C8C8C8', hcDark: contrastBorder, hcLight: contrastBorder },
+	{ dark: '#1C1D21', light: '#C8C8C8', hcDark: contrastBorder, hcLight: contrastBorder },
 	nls.localize('editorWidgetBorder', 'Border color of editor widgets. The color is only used if the widget chooses to have a border and if the color is not overridden by a widget.'));
 
 export const editorWidgetResizeBorder = registerColor('editorWidget.resizeBorder',

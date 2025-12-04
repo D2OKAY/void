@@ -67,7 +67,7 @@ export const PastThreadsList = ({ className = '' }: { className?: string }) => {
 
 			{hasMoreThreads && !showAll && (
 				<div
-					className="text-void-fg-3 opacity-80 hover:opacity-100 hover:brightness-115 cursor-pointer p-1 text-xs"
+					className="text-void-fg-3 opacity-80 hover:opacity-100 hover:brightness-115 cursor-pointer p-1 text-xs transition-opacity duration-150"
 					onClick={() => setShowAll(true)}
 				>
 					Show {sortedThreadIds.length - numInitialThreads} more...
@@ -75,7 +75,7 @@ export const PastThreadsList = ({ className = '' }: { className?: string }) => {
 			)}
 			{hasMoreThreads && showAll && (
 				<div
-					className="text-void-fg-3 opacity-80 hover:opacity-100 hover:brightness-115 cursor-pointer p-1 text-xs"
+					className="text-void-fg-3 opacity-80 hover:opacity-100 hover:brightness-115 cursor-pointer p-1 text-xs transition-opacity duration-150"
 					onClick={() => setShowAll(false)}
 				>
 					Show less
@@ -233,13 +233,20 @@ const PastThreadElement = ({ pastThread, idx, hoveredIdx, setHoveredIdx, isRunni
 	return <div
 		key={pastThread.id}
 		className={`
-			py-1 px-2 rounded text-sm bg-zinc-700/5 hover:bg-zinc-700/10 dark:bg-zinc-300/5 dark:hover:bg-zinc-300/10 cursor-pointer opacity-80 hover:opacity-100
+			py-1 px-2 rounded text-sm bg-muted hover:bg-accent cursor-pointer opacity-80 hover:opacity-100 transition-all duration-150
 		`}
+		style={{ backgroundColor: '#1E1F24', color: '#E8E9EC' }}
 		onClick={() => {
 			chatThreadsService.switchToThread(pastThread.id);
 		}}
-		onMouseEnter={() => setHoveredIdx(idx)}
-		onMouseLeave={() => setHoveredIdx(null)}
+		onMouseEnter={(e) => {
+			setHoveredIdx(idx);
+			e.currentTarget.style.backgroundColor = '#2A2B30';
+		}}
+		onMouseLeave={(e) => {
+			setHoveredIdx(null);
+			e.currentTarget.style.backgroundColor = '#1E1F24';
+		}}
 	>
 		<div className="flex items-center justify-between gap-1">
 			<span className="flex items-center gap-2 min-w-0 overflow-hidden">

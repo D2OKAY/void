@@ -1,8 +1,8 @@
 {
   "metadata": {
     "version": "1.0",
-    "lastUpdated": "2025-01-15T00:00:00.000Z",
-    "totalLessons": 10,
+    "lastUpdated": "2025-12-02T16:38:48.089Z",
+    "totalLessons": 11,
     "categories": [
       "hybrid-agent-architecture",
       "hybrid-agent-response-handling",
@@ -11,7 +11,8 @@
       "hybrid-agent-context-management",
       "hybrid-agent-configuration",
       "hybrid-agent-json-parsing",
-      "prompt-engineering"
+      "prompt-engineering",
+      "frontend-react"
     ],
     "lastCleanup": "2025-01-15T00:00:00.000Z"
   },
@@ -24,8 +25,9 @@
       "priority": "high",
       "isGlobalCandidate": true,
       "dateAdded": "2025-01-15T00:00:00.000Z",
-      "timesReferenced": 0,
-      "context": "This was the root cause of the hybrid agent failure. Original code in hybridAgentService.ts concatenated system message with user instruction. Fixed by separating into systemMessageOverride and instructionMessage parameters, then passing systemMessageOverride through executeCallback → executeAgentTask → _runChatAgent → prepareLLMChatMessages."
+      "timesReferenced": 4,
+      "context": "This was the root cause of the hybrid agent failure. Original code in hybridAgentService.ts concatenated system message with user instruction. Fixed by separating into systemMessageOverride and instructionMessage parameters, then passing systemMessageOverride through executeCallback → executeAgentTask → _runChatAgent → prepareLLMChatMessages.",
+      "lastUsed": "2025-12-02T16:38:42.119Z"
     },
     {
       "id": "lesson-1737000000002-hybrid002",
@@ -35,8 +37,9 @@
       "priority": "high",
       "isGlobalCandidate": true,
       "dateAdded": "2025-01-15T00:00:00.000Z",
-      "timesReferenced": 0,
-      "context": "In chatThreadService.ts line 861, added forceAgentMode: true to executeAgentTask call. This ensures the coder model has access to all tools regardless of global chat mode setting."
+      "timesReferenced": 4,
+      "context": "In chatThreadService.ts line 861, added forceAgentMode: true to executeAgentTask call. This ensures the coder model has access to all tools regardless of global chat mode setting.",
+      "lastUsed": "2025-12-02T16:38:42.119Z"
     },
     {
       "id": "lesson-1737000000003-hybrid003",
@@ -46,8 +49,9 @@
       "priority": "high",
       "isGlobalCandidate": true,
       "dateAdded": "2025-01-15T00:00:00.000Z",
-      "timesReferenced": 0,
-      "context": "In chatThreadService.ts lines 912-921, added logic to detect tool-only responses. This prevents false negatives where model successfully uses tools but produces minimal text commentary."
+      "timesReferenced": 4,
+      "context": "In chatThreadService.ts lines 912-921, added logic to detect tool-only responses. This prevents false negatives where model successfully uses tools but produces minimal text commentary.",
+      "lastUsed": "2025-12-02T16:38:42.119Z"
     },
     {
       "id": "lesson-1737000000004-hybrid004",
@@ -57,8 +61,9 @@
       "priority": "medium",
       "isGlobalCandidate": true,
       "dateAdded": "2025-01-15T00:00:00.000Z",
-      "timesReferenced": 0,
-      "context": "Added in chatThreadService.ts lines 776-778 after plan creation. Catches edge case where planner model returns valid JSON with empty steps array."
+      "timesReferenced": 4,
+      "context": "Added in chatThreadService.ts lines 776-778 after plan creation. Catches edge case where planner model returns valid JSON with empty steps array.",
+      "lastUsed": "2025-12-02T16:38:42.119Z"
     },
     {
       "id": "lesson-1737000000005-hybrid005",
@@ -68,8 +73,9 @@
       "priority": "high",
       "isGlobalCandidate": false,
       "dateAdded": "2025-01-15T00:00:00.000Z",
-      "timesReferenced": 0,
-      "context": "Implemented in chatThreadService.ts lines 987-1020. Flow: First attempt → enhanceStepInstructions → retry → plannerTakeover if needed."
+      "timesReferenced": 4,
+      "context": "Implemented in chatThreadService.ts lines 987-1020. Flow: First attempt → enhanceStepInstructions → retry → plannerTakeover if needed.",
+      "lastUsed": "2025-12-02T16:38:42.119Z"
     },
     {
       "id": "lesson-1737000000006-hybrid006",
@@ -79,8 +85,9 @@
       "priority": "medium",
       "isGlobalCandidate": false,
       "dateAdded": "2025-01-15T00:00:00.000Z",
-      "timesReferenced": 0,
-      "context": "Implemented in chatThreadService.ts starting line 812. After each step, push output to stepFindings array, build contextWithFindings, pass to executeStep."
+      "timesReferenced": 4,
+      "context": "Implemented in chatThreadService.ts starting line 812. After each step, push output to stepFindings array, build contextWithFindings, pass to executeStep.",
+      "lastUsed": "2025-12-02T16:38:42.119Z"
     },
     {
       "id": "lesson-1737000000007-hybrid007",
@@ -90,8 +97,9 @@
       "priority": "medium",
       "isGlobalCandidate": false,
       "dateAdded": "2025-01-15T00:00:00.000Z",
-      "timesReferenced": 0,
-      "context": "Implemented in chatThreadService.ts executeCallback (lines 832-935). Creates isolated execThreadId, runs task, extracts results, discards thread."
+      "timesReferenced": 4,
+      "context": "Implemented in chatThreadService.ts executeCallback (lines 832-935). Creates isolated execThreadId, runs task, extracts results, discards thread.",
+      "lastUsed": "2025-12-02T16:38:42.119Z"
     },
     {
       "id": "lesson-1737000000008-hybrid008",
@@ -101,8 +109,9 @@
       "priority": "medium",
       "isGlobalCandidate": true,
       "dateAdded": "2025-01-15T00:00:00.000Z",
-      "timesReferenced": 0,
-      "context": "Changed in chatThreadService.ts line 50 from 60000ms to 180000ms. Research tasks commonly use 5-10 tools per step, each taking 2-5 seconds."
+      "timesReferenced": 4,
+      "context": "Changed in chatThreadService.ts line 50 from 60000ms to 180000ms. Research tasks commonly use 5-10 tools per step, each taking 2-5 seconds.",
+      "lastUsed": "2025-12-02T16:38:42.119Z"
     },
     {
       "id": "lesson-1737000000009-hybrid009",
@@ -112,8 +121,9 @@
       "priority": "high",
       "isGlobalCandidate": true,
       "dateAdded": "2025-01-15T00:00:00.000Z",
-      "timesReferenced": 0,
-      "context": "Implemented in hybridAgentService.ts lines 13-39. Handles common LLM output formats. Error messages show partial response when parsing fails."
+      "timesReferenced": 4,
+      "context": "Implemented in hybridAgentService.ts lines 13-39. Handles common LLM output formats. Error messages show partial response when parsing fails.",
+      "lastUsed": "2025-12-02T16:38:42.119Z"
     },
     {
       "id": "lesson-1737000000010-hybrid010",
@@ -123,8 +133,33 @@
       "priority": "medium",
       "isGlobalCandidate": true,
       "dateAdded": "2025-01-15T00:00:00.000Z",
-      "timesReferenced": 0,
-      "context": "Reduced hybrid_coder_systemMessage in prompts.ts from ~35 lines to ~15 lines. Removed redundant examples, consolidated instructions, eliminated verbose explanations."
+      "timesReferenced": 4,
+      "context": "Reduced hybrid_coder_systemMessage in prompts.ts from ~35 lines to ~15 lines. Removed redundant examples, consolidated instructions, eliminated verbose explanations.",
+      "lastUsed": "2025-12-02T16:38:42.119Z"
+    },
+    {
+      "title": "Prefer React-state-based resizable left pane for PlanViewer",
+      "description": "In GenAI/void PlanViewer, prefer a React-state driven resizer inside PlanViewer.tsx (left pane width managed with React state and a draggable divider with localStorage persistence) rather than introducing new TS modules or mutating the parent grid. If SplitView is already used elsewhere, prefer wrapping/bridging to that API. This keeps changes minimal, aligns with React + Tailwind, and reduces layout-risk.",
+      "category": "frontend-react",
+      "priority": "medium",
+      "isGlobalCandidate": true,
+      "context": "PlanViewer.tsx layout and existing SplitView patterns in Settings Editor, User Data Profiles, etc.",
+      "id": "lesson-1764693481364-s7dtwcxve",
+      "dateAdded": "2025-12-02T16:38:01.364Z",
+      "timesReferenced": 4,
+      "lastUsed": "2025-12-02T16:38:42.119Z",
+      "scope": "project",
+      "is_global_candidate": false,
+      "dateModified": "2025-12-02T16:38:48.089Z",
+      "keywords": [
+        "PlanViewer",
+        "Resizable",
+        "React",
+        "Plan",
+        "two-pane",
+        "Tailwind",
+        "UI"
+      ]
     }
   ]
 }

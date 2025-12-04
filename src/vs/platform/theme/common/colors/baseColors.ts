@@ -31,7 +31,7 @@ export const iconForeground = registerColor('icon.foreground',
 	nls.localize('iconForeground', "The default color for icons in the workbench."));
 
 export const focusBorder = registerColor('focusBorder',
-	{ dark: '#007FD4', light: '#0090F1', hcDark: '#F38518', hcLight: '#006BBD' },
+	{ dark: '#FF3D6A', light: '#0090F1', hcDark: '#F38518', hcLight: '#006BBD' },
 	nls.localize('focusBorder', "Overall border color for focused elements. This color is only used if not overridden by a component."));
 
 export const contrastBorder = registerColor('contrastBorder',

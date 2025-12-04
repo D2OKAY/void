@@ -440,7 +440,7 @@ export const isFeatureNameDisabled = (featureName: FeatureName, settingsState: V
 
 
 
-export type ChatMode = 'agent' | 'gather' | 'normal' | 'hybrid'
+export type ChatMode = 'agent' | 'plan' | 'normal' | 'hybrid'
 
 
 export type GlobalSettings = {

@@ -95,6 +95,7 @@ const Codespan = ({ text, className, onClick, tooltip }: { text: string, classNa
 
 	return <code
 		className={`font-mono font-medium rounded-sm bg-void-bg-1 px-1 ${className}`}
+		style={{ backgroundColor: '#2A2B30', color: '#E8E9EC' }}
 		onClick={onClick}
 		{...tooltip ? {
 			'data-tooltip-id': 'void-tooltip',

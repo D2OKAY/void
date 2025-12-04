@@ -85,6 +85,46 @@ export class HybridPlanService extends Disposable implements IHybridPlanService 
 		this.storageService.remove(key, StorageScope.WORKSPACE);
 	}
 
+	// Plan mode specific methods
+	async savePlanFromConversation(
+		conversationId: string,
+		title: string,
+		content: string,
+		scope: 'project' | 'global'
+	): Promise<string> {
+		const plan: HybridPlan = {
+			planId: `plan-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+			title,
+			summary: content,
+			createdAt: new Date().toISOString(),
+			createdBy: 'plan-mode',
+			planType: 'plan-mode',
+			steps: [],
+			isTemplate: false,
+			projectPath: this.workspaceContextService.getWorkspace().folders[0]?.uri.path,
+			conversationId,
+			tags: []
+		};
+		await this.savePlan(plan, scope);
+		return plan.planId;
+	}
+
+	async archivePlan(planId: string, scope: 'project' | 'global'): Promise<void> {
+		const plan = await this.getPlan(planId, scope);
+		if (plan) {
+			plan.tags = plan.tags || [];
+			if (!plan.tags.includes('archived')) {
+				plan.tags.push('archived');
+			}
+			await this.savePlan(plan, scope);
+		}
+	}
+
+	async listPlansByType(planType: HybridPlan['planType'], scope: 'project' | 'global' | 'both'): Promise<HybridPlan[]> {
+		const allPlans = await this.listPlans(scope);
+		return allPlans.filter(p => (p.planType || 'hybrid-execution') === planType);
+	}
+
 	// Private methods for project plans
 	private async _saveProjectPlan(plan: HybridPlan): Promise<void> {
 		const workspaceFolders = this.workspaceContextService.getWorkspace().folders;
@@ -115,7 +155,15 @@ export class HybridPlanService extends Disposable implements IHybridPlanService 
 
 		try {
 			const content = await this.fileService.readFile(planFile);
-			return JSON.parse(content.value.toString());
+			const rawPlan = JSON.parse(content.value.toString());
+
+			// MIGRATION: Add defaults for new fields
+			return {
+				...rawPlan,
+				planType: rawPlan.planType || 'hybrid-execution',
+				conversationId: rawPlan.conversationId,
+				tags: rawPlan.tags || []
+			} as HybridPlan;
 		} catch {
 			return null;
 		}
@@ -140,7 +188,14 @@ export class HybridPlanService extends Disposable implements IHybridPlanService 
 				if (entry.name.endsWith('.json')) {
 					try {
 						const content = await this.fileService.readFile(entry.resource);
-						const plan = JSON.parse(content.value.toString());
+						const rawPlan = JSON.parse(content.value.toString());
+						// MIGRATION: Add defaults for new fields
+						const plan: HybridPlan = {
+							...rawPlan,
+							planType: rawPlan.planType || 'hybrid-execution',
+							conversationId: rawPlan.conversationId,
+							tags: rawPlan.tags || []
+						};
 						plans.push(plan);
 					} catch {
 						// Skip invalid files
@@ -190,7 +245,16 @@ export class HybridPlanService extends Disposable implements IHybridPlanService 
 
 	private async _getGlobalPlan(planId: string): Promise<HybridPlan | null> {
 		const plans = await this._listGlobalPlans();
-		return plans.find(p => p.planId === planId) || null;
+		const rawPlan = plans.find(p => p.planId === planId);
+		if (!rawPlan) return null;
+
+		// MIGRATION: Add defaults for new fields
+		return {
+			...rawPlan,
+			planType: rawPlan.planType || 'hybrid-execution',
+			conversationId: rawPlan.conversationId,
+			tags: rawPlan.tags || []
+		};
 	}
 
 	private async _listGlobalPlans(): Promise<HybridPlan[]> {
