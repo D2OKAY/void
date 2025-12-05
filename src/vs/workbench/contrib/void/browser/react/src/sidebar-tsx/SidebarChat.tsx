@@ -98,50 +98,6 @@ const IconSquare = ({ size, className = '' }: { size: number, className?: string
 };
 
 
-const SaveAsPlanButton = ({ messageContent, conversationId }: {
-	messageContent: string, conversationId: string
-}) => {
-	const accessor = useAccessor()
-	const hybridPlanService = accessor.get('IHybridPlanService')
-	const quickInputService = accessor.get('IQuickInputService')
-	const notificationService = accessor.get('INotificationService')
-
-	const handleSavePlan = useCallback(async () => {
-		const title = await new Promise<string | undefined>((resolve) => {
-			const input = quickInputService.createInputBox()
-			input.title = 'Save Plan'
-			input.placeholder = 'Enter a title for this plan'
-			input.onDidAccept(() => {
-				resolve(input.value)
-				input.dispose()
-			})
-			input.onDidHide(() => {
-				resolve(undefined)
-				input.dispose()
-			})
-			input.show()
-		})
-
-		if (!title) return
-
-		try {
-			await hybridPlanService.savePlanFromConversation(
-				conversationId, title, messageContent, 'project'
-			)
-			notificationService.info(`Plan saved: ${title}`)
-		} catch (error) {
-			notificationService.error(`Failed to save plan: ${error}`)
-		}
-	}, [conversationId, messageContent, hybridPlanService, notificationService, quickInputService])
-
-	return (
-		<button onClick={handleSavePlan}
-			className="px-2 py-1 text-sm rounded bg-[var(--vscode-button-secondaryBackground)] hover:bg-[var(--vscode-button-secondaryHoverBackground)]">
-			Save as Plan
-		</button>
-	)
-}
-
 export const IconWarning = ({ size, className = '' }: { size: number, className?: string }) => {
 	return (
 		<svg
@@ -165,14 +121,30 @@ export const IconWarning = ({ size, className = '' }: { size: number, className?
 
 
 export const IconLoading = ({ className = '' }: { className?: string }) => {
-	// CSS-based animation for better performance - no state updates needed
-	return (
-		<div className={`inline-flex items-center gap-[2px] ${className}`}>
-			<span className="w-1 h-1 rounded-full bg-current animate-[pulse-dot_1.2s_ease-in-out_infinite]" style={{ animationDelay: '0ms' }} />
-			<span className="w-1 h-1 rounded-full bg-current animate-[pulse-dot_1.2s_ease-in-out_infinite]" style={{ animationDelay: '200ms' }} />
-			<span className="w-1 h-1 rounded-full bg-current animate-[pulse-dot_1.2s_ease-in-out_infinite]" style={{ animationDelay: '400ms' }} />
-		</div>
-	);
+
+	const [loadingText, setLoadingText] = useState('.');
+
+	useEffect(() => {
+		let intervalId;
+
+		// Function to handle the animation
+		const toggleLoadingText = () => {
+			if (loadingText === '...') {
+				setLoadingText('.');
+			} else {
+				setLoadingText(loadingText + '.');
+			}
+		};
+
+		// Start the animation loop
+		intervalId = setInterval(toggleLoadingText, 300);
+
+		// Cleanup function to clear the interval when component unmounts
+		return () => clearInterval(intervalId);
+	}, [loadingText, setLoadingText]);
+
+	return <div className={`${className}`}>{loadingText}</div>;
+
 }
 
 
@@ -277,14 +249,14 @@ const ReasoningOptionSlider = ({ featureName }: { featureName: FeatureName }) =>
 
 const nameOfChatMode = {
 	'normal': 'Chat',
-	'plan': 'Plan',
+	'gather': 'Gather',
 	'agent': 'Agent',
 	'hybrid': 'Hybrid Agent',
 }
 
 const detailOfChatMode = {
 	'normal': 'Normal chat',
-	'plan': 'Creates plans and prototypes',
+	'gather': 'Reads files, but can\'t edit',
 	'agent': 'Edits files and uses tools',
 	'hybrid': 'Cloud AI plans, Local AI codes',
 }
@@ -296,7 +268,7 @@ const ChatModeDropdown = ({ className }: { className: string }) => {
 	const voidSettingsService = accessor.get('IVoidSettingsService')
 	const settingsState = useSettingsState()
 
-	const options: ChatMode[] = useMemo(() => ['normal', 'plan', 'agent', 'hybrid'], [])
+	const options: ChatMode[] = useMemo(() => ['normal', 'gather', 'agent', 'hybrid'], [])
 
 	const onChangeOption = useCallback((newVal: ChatMode) => {
 		voidSettingsService.setGlobalSetting('chatMode', newVal)
@@ -400,16 +372,17 @@ export const VoidChatArea: React.FC<VoidChatAreaProps> = ({
 				gap-x-1
                 flex flex-col p-2 relative input text-left shrink-0
                 rounded-md
+                bg-void-bg-1
 				transition-all duration-200
-				border border-border bg-secondary
-				focus-within:border-primary
+				border border-void-border-3 focus-within:border-void-border-1 hover:border-void-border-1
 				max-h-[80vh] overflow-y-auto
                 ${className}
             `}
 			style={{
-				backgroundColor: '#1E1F24',
-				borderColor: '#2A2B30'
-			}}
+				backgroundColor: '#191A1E',
+				borderColor: '#2A2B30',
+				'--tw-ring-color': '#FF3D6A',
+			} as React.CSSProperties}
 			onClick={(e) => {
 				onClickAnywhere?.()
 			}}
@@ -446,10 +419,10 @@ export const VoidChatArea: React.FC<VoidChatAreaProps> = ({
 				<div className='flex flex-col gap-y-1'>
 					<ReasoningOptionSlider featureName={featureName} />
 
-				<div className='flex items-center flex-wrap gap-x-2 gap-y-1 text-nowrap '>
-					{featureName === 'Chat' && <ChatModeDropdown className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-2 rounded py-0.5 px-1' />}
-					<ModelDropdown featureName={featureName} className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-2 rounded py-0.5 px-1' />
-				</div>
+					<div className='flex items-center flex-wrap gap-x-2 gap-y-1 text-nowrap '>
+						{featureName === 'Chat' && <ChatModeDropdown className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-2 rounded py-0.5 px-1' />}
+						<ModelDropdown featureName={featureName} className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-2 rounded py-0.5 px-1' />
+					</div>
 
 					{featureName === 'Chat' && settingsState.globalSettings.chatMode === 'hybrid' && (
 						<HybridModelSelector className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-2 rounded py-1 px-2' />
@@ -485,9 +458,8 @@ export const ButtonSubmit = ({ className, disabled, ...props }: ButtonProps & Re
 
 	return <button
 		type='button'
-		className={`rounded-full flex-shrink-0 flex-grow-0 flex items-center justify-center transition-all duration-150
-			${disabled ? 'bg-void-fg-4 cursor-default' : 'bg-primary cursor-pointer hover:brightness-110 hover:scale-105 active:scale-95'}
-			focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1
+		className={`rounded-full flex-shrink-0 flex-grow-0 flex items-center justify-center
+			${disabled ? 'bg-vscode-disabled-fg cursor-default' : 'bg-white cursor-pointer'}
 			${className}
 		`}
 		// data-tooltip-id='void-tooltip'
@@ -495,21 +467,20 @@ export const ButtonSubmit = ({ className, disabled, ...props }: ButtonProps & Re
 		// data-tooltip-place='left'
 		{...props}
 	>
-		<IconArrowUp size={DEFAULT_BUTTON_SIZE} className="stroke-[2] p-[2px] text-background" />
+		<IconArrowUp size={DEFAULT_BUTTON_SIZE} className="stroke-[2] p-[2px]" />
 	</button>
 }
 
 export const ButtonStop = ({ className, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => {
 	return <button
-		className={`rounded-full flex-shrink-0 flex-grow-0 cursor-pointer flex items-center justify-center transition-all duration-150
-			bg-primary hover:brightness-110 hover:scale-105 active:scale-95
-			focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1
+		className={`rounded-full flex-shrink-0 flex-grow-0 cursor-pointer flex items-center justify-center
+			bg-white
 			${className}
 		`}
 		type='button'
 		{...props}
 	>
-		<IconSquare size={DEFAULT_BUTTON_SIZE} className="stroke-[3] p-[7px] text-background" />
+		<IconSquare size={DEFAULT_BUTTON_SIZE} className="stroke-[3] p-[7px]" />
 	</button>
 }
 
@@ -886,7 +857,7 @@ const ToolHeaderWrapper = ({
 	>{desc1}</span>
 
 	return (<div className=''>
-		<div className={`w-full border border-void-border-3 rounded px-2 py-1 bg-void-bg-3 overflow-hidden ${className}`}>
+		<div className={`w-full border border-void-border-3 rounded px-2 py-1 bg-void-bg-3 overflow-hidden ${className}`} style={{ backgroundColor: '#1A1B1F', borderColor: '#2A2B30' }}>
 			{/* header */}
 			<div className={`select-none flex items-center min-h-[24px]`}>
 				<div className={`flex items-center w-full gap-x-2 overflow-hidden justify-between ${isRejected ? 'line-through' : ''}`}>
@@ -1396,7 +1367,6 @@ const AssistantMessageComponent = ({ chatMessage, isCheckpointGhost, isCommitted
 
 	const accessor = useAccessor()
 	const chatThreadsService = accessor.get('IChatThreadService')
-	const settingsState = useSettingsState()
 
 	const reasoningStr = chatMessage.reasoning?.trim() || null
 	const hasReasoning = !!reasoningStr
@@ -1440,15 +1410,6 @@ const AssistantMessageComponent = ({ chatMessage, isCheckpointGhost, isCommitted
 						isLinkDetectionEnabled={true}
 					/>
 				</ProseWrapper>
-				{/* Save as Plan button for Plan mode */}
-				{settingsState.globalSettings.chatMode === 'plan' && isCommitted && (
-					<div className="mt-2">
-						<SaveAsPlanButton
-							messageContent={chatMessage.displayContent}
-							conversationId={thread.id}
-						/>
-					</div>
-				)}
 			</div>
 		}
 	</>
@@ -1501,13 +1462,6 @@ const titleOfBuiltinToolName = {
 
 	'read_lint_errors': { done: `Read lint errors`, proposed: 'Read lint errors', running: loadingTitleWrapper('Reading lint errors') },
 	'search_in_file': { done: 'Searched in file', proposed: 'Search in file', running: loadingTitleWrapper('Searching in file') },
-	// Brain tools:
-	'add_lesson': { done: 'Added lesson', proposed: 'Add lesson', running: loadingTitleWrapper('Adding lesson') },
-	'search_lessons': { done: 'Searched lessons', proposed: 'Search lessons', running: loadingTitleWrapper('Searching lessons') },
-	'update_lesson': { done: 'Updated lesson', proposed: 'Update lesson', running: loadingTitleWrapper('Updating lesson') },
-	'delete_lesson': { done: 'Deleted lesson', proposed: 'Delete lesson', running: loadingTitleWrapper('Deleting lesson') },
-	'promote_to_global': { done: 'Promoted to global', proposed: 'Promote to global', running: loadingTitleWrapper('Promoting to global') },
-	'cleanup_brain': { done: 'Cleaned up brain', proposed: 'Cleanup brain', running: loadingTitleWrapper('Cleaning up brain') },
 } as const satisfies Record<BuiltinToolName, { done: any, proposed: any, running: any }>
 
 
@@ -1726,14 +1680,14 @@ const ToolRequestAcceptRejectButtons = ({ toolName }: { toolName: ToolName }) =>
 }
 
 export const ToolChildrenWrapper = ({ children, className }: { children: React.ReactNode, className?: string }) => {
-	return <div className={`${className ? className : ''} cursor-default select-none`}>
+	return <div className={`${className ? className : ''} cursor-default select-none`} style={{ backgroundColor: '#1A1B1F' }}>
 		<div className='px-2 min-w-full overflow-hidden'>
 			{children}
 		</div>
 	</div>
 }
 export const CodeChildren = ({ children, className }: { children: React.ReactNode, className?: string }) => {
-	return <div className={`${className ?? ''} p-1 rounded-sm overflow-auto text-sm`}>
+	return <div className={`${className ?? ''} p-1 rounded-sm overflow-auto text-sm`} style={{ backgroundColor: '#1A1B1F' }}>
 		<div className='!select-text cursor-auto'>
 			{children}
 		</div>
@@ -3165,7 +3119,7 @@ export const SidebarChat = () => {
 	>
 		<VoidInputBox2
 			enableAtToMention
-			className={`min-h-[81px] px-0.5 py-0.5 rounded`}
+			className={`min-h-[81px] px-0.5 py-0.5`}
 			placeholder={`@ to mention, ${keybindingString ? `${keybindingString} to add a selection. ` : ''}Enter instructions...`}
 			onChangeText={onChangeText}
 			onKeyDown={onKeyDown}
@@ -3181,20 +3135,17 @@ export const SidebarChat = () => {
 	const isLandingPage = previousMessages.length === 0
 
 
-	const initiallySuggestedPromptsHTML = <div className='flex flex-col gap-2 w-full text-nowrap text-void-fg-3 select-none' style={{ color: '#7D8390' }}>
+	const initiallySuggestedPromptsHTML = <div className='flex flex-col gap-2 w-full text-nowrap text-void-fg-3 select-none'>
 		{[
 			'Summarize my codebase',
 			'How do types work in Rust?',
 			'Create a .voidrules file for me'
 		].map((text, index) => (
-		<div
-			key={index}
-			className='py-1 px-2 rounded text-sm bg-void-bg-2-hover hover:bg-void-bg-1 cursor-pointer opacity-80 hover:opacity-100 transition-all duration-150 hover:translate-x-0.5'
-			style={{ backgroundColor: '#1E1F24', color: '#B8BCC4' }}
-			onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#2A2B30'; }}
-			onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#1E1F24'; }}
-			onClick={() => onSubmit(text)}
-		>
+			<div
+				key={index}
+				className='py-1 px-2 rounded text-sm bg-zinc-700/5 hover:bg-zinc-700/10 dark:bg-zinc-300/5 dark:hover:bg-zinc-300/10 cursor-pointer opacity-80 hover:opacity-100'
+				onClick={() => onSubmit(text)}
+			>
 				{text}
 			</div>
 		))}
@@ -3219,8 +3170,7 @@ export const SidebarChat = () => {
 
 	const landingPageContent = <div
 		ref={sidebarRef}
-		className='w-full h-full max-h-full flex flex-col overflow-auto px-4 bg-background'
-		style={{ backgroundColor: '#16171A' }}
+		className='w-full h-full max-h-full flex flex-col overflow-auto px-4'
 	>
 		<ErrorBoundary>
 			{landingPageInput}
@@ -3255,8 +3205,7 @@ export const SidebarChat = () => {
 	// </div>
 	const threadPageContent = <div
 		ref={sidebarRef}
-		className='w-full h-full flex flex-col overflow-hidden bg-background'
-		style={{ backgroundColor: '#16171A' }}
+		className='w-full h-full flex flex-col overflow-hidden'
 	>
 
 		<ErrorBoundary>

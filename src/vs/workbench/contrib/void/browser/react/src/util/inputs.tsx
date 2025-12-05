@@ -753,8 +753,13 @@ export const VoidInputBox2 = forwardRef<HTMLTextAreaElement, InputBox2Props>(fun
 
 			disabled={!isEnabled}
 
-	className={`w-full resize-none max-h-[500px] overflow-y-auto bg-background text-foreground placeholder:text-muted-foreground/60 transition-colors duration-150 ${className}`}
-			style={{ backgroundColor: 'transparent', color: '#E8E9EC' }}
+		className={`w-full resize-none max-h-[500px] overflow-y-auto text-void-fg-1 placeholder:text-void-fg-3 ${className}`}
+		style={{
+			backgroundColor: 'transparent',
+			color: '#E8E9EC',
+			border: 'none',
+			outline: 'none',
+		}}
 
 			onInput={useCallback((event: React.FormEvent<HTMLTextAreaElement>) => {
 				const latestChange = (event.nativeEvent as InputEvent).data;
@@ -845,8 +850,9 @@ export const VoidInputBox2 = forwardRef<HTMLTextAreaElement, InputBox2Props>(fun
 										className={`
 											flex items-center gap-2
 											px-3 py-1 cursor-pointer
-											${oIdx === optionIdx ? 'bg-blue-500 text-white/80' : 'bg-void-bg-2-alt text-void-fg-1'}
+											${oIdx === optionIdx ? 'text-white/80' : 'bg-void-bg-2-alt text-void-fg-1'}
 										`}
+										style={oIdx === optionIdx ? { backgroundColor: '#FF3D6A' } : {}}
 										onClick={() => { onSelectOption(); }}
 										onMouseMove={() => { setOptionIdx(oIdx) }}
 									>
@@ -1386,7 +1392,7 @@ export const VoidCustomDropdownBox = <T extends NonNullable<any>>({
 			<button
 				type='button'
 				ref={refs.setReference}
-				className="flex items-center h-4 bg-transparent whitespace-nowrap hover:brightness-90 w-full transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring rounded"
+				className="flex items-center h-4 bg-transparent whitespace-nowrap hover:brightness-90 w-full"
 				onClick={() => setIsOpen(!isOpen)}
 			>
 				<span className={`truncate ${arrowTouchesText ? 'mr-1' : ''}`}>
@@ -1416,8 +1422,6 @@ export const VoidCustomDropdownBox = <T extends NonNullable<any>>({
 						position: strategy,
 						top: y ?? 0,
 						left: x ?? 0,
-						backgroundColor: '#1E1F24',
-						borderColor: '#2A2B30',
 						width: (matchInputWidth
 							? (refs.reference.current instanceof HTMLElement ? refs.reference.current.offsetWidth : 0)
 							: Math.max(
@@ -1438,21 +1442,11 @@ export const VoidCustomDropdownBox = <T extends NonNullable<any>>({
 									key={optionName}
 									className={`flex items-center px-2 py-1 pr-4 cursor-pointer whitespace-nowrap
 									transition-all duration-100
+									${thisOptionIsSelected ? 'text-white/80' : 'hover:text-white/80'}
 								`}
-									style={{
-										backgroundColor: thisOptionIsSelected ? '#FF3D6A' : 'transparent',
-										color: '#E8E9EC'
-									}}
-									onMouseEnter={(e) => {
-										if (!thisOptionIsSelected) {
-											e.currentTarget.style.backgroundColor = '#2A2B30';
-										}
-									}}
-									onMouseLeave={(e) => {
-										if (!thisOptionIsSelected) {
-											e.currentTarget.style.backgroundColor = 'transparent';
-										}
-									}}
+									style={thisOptionIsSelected ? { backgroundColor: '#FF3D6A' } : {}}
+									onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#FF3D6A'; }}
+									onMouseLeave={(e) => { if (!thisOptionIsSelected) e.currentTarget.style.backgroundColor = ''; }}
 									onClick={() => {
 										onChangeOption(option);
 										setIsOpen(false);
@@ -1625,7 +1619,7 @@ export const BlockCode = ({ initValue, language, maxHeight, showScrollbars }: Bl
 		if (language) modelRef.current?.setLanguage(language)
 	}, [language])
 
-	return <div ref={divRef} className='relative z-0 px-2 py-1 bg-void-bg-3'>
+	return <div ref={divRef} className='relative z-0 px-2 py-1 bg-void-bg-3' style={{ backgroundColor: '#1A1B1F', borderRadius: '6px' }}>
 		<WidgetComponent
 			className='@@bg-editor-style-override' // text-sm
 			ctor={useCallback((container) => {
@@ -1728,7 +1722,7 @@ export const BlockCode = ({ initValue, language, maxHeight, showScrollbars }: Bl
 
 export const VoidButtonBgDarken = ({ children, disabled, onClick, className }: { children: React.ReactNode; disabled?: boolean; onClick: () => void; className?: string }) => {
 	return <button disabled={disabled}
-		className={`px-3 py-1 bg-black/10 dark:bg-white/10 rounded-sm overflow-hidden whitespace-nowrap flex items-center justify-center transition-all duration-150 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring hover:brightness-90 ${className || ''}`}
+		className={`px-3 py-1 bg-black/10 dark:bg-white/10 rounded-sm overflow-hidden whitespace-nowrap flex items-center justify-center ${className || ''}`}
 		onClick={onClick}
 	>{children}</button>
 }

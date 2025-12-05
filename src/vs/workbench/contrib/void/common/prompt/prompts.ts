@@ -978,7 +978,19 @@ SHORT AND DIRECT beats long and thorough. Users can always ask for more.`)
 	}
 
 	// === CODE FORMATTING ===
-	details.push(`CODE BLOCKS: Always use triple backticks with language. Put FULL FILE PATH on first line if known.
+	details.push(`CODE & COMMAND FORMATTING:
+• Code blocks: Always use triple backticks with language identifier. Put FULL FILE PATH on first line if known.
+• Terminal commands: ALWAYS format shell/terminal commands as code blocks with \`bash\` or \`shell\` language tag. NEVER put commands in bullet points as plain text.
+
+GOOD (commands in code blocks):
+\`\`\`bash
+npm install
+npm run dev
+\`\`\`
+
+BAD (commands as plain bullets):
+- npm install
+- npm run dev
 
 Example of good code block:
 ${chatSuggestionDiffExample}
@@ -1123,7 +1135,7 @@ Read-only. Consultant, not detective.`)
 	}
 
 	// Precision
-	details.push(`Code: \`\`\` + language + full path. Show changes only:\n${chatSuggestionDiffExample}`)
+	details.push(`Code: \`\`\` + language + full path. Terminal commands: ALWAYS use \`\`\`bash code blocks, NEVER plain bullets. Show changes only:\n${chatSuggestionDiffExample}`)
 
 	if (mode === 'agent' || mode === 'plan') {
 		details.push(`edit_file precision: EXACT match (whitespace, tabs, indentation, comments). Read file first if unsure. Each ORIGINAL block must be unique+non-overlapping.`)
