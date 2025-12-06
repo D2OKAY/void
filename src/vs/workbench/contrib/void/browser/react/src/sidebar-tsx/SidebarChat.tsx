@@ -98,6 +98,51 @@ const IconSquare = ({ size, className = '' }: { size: number, className?: string
 };
 
 
+const SaveAsPlanButton = ({ messageContent, conversationId }: {
+	messageContent: string, conversationId: string
+}) => {
+	const accessor = useAccessor()
+	const hybridPlanService = accessor.get('IHybridPlanService')
+	const quickInputService = accessor.get('IQuickInputService')
+	const notificationService = accessor.get('INotificationService')
+
+	const handleSavePlan = useCallback(async () => {
+		const title = await new Promise<string | undefined>((resolve) => {
+			const input = quickInputService.createInputBox()
+			input.title = 'Save Plan'
+			input.placeholder = 'Enter a title for this plan'
+			input.onDidAccept(() => {
+				resolve(input.value)
+				input.dispose()
+			})
+			input.onDidHide(() => {
+				resolve(undefined)
+				input.dispose()
+			})
+			input.show()
+		})
+
+	if (!title) return
+
+	try {
+		await hybridPlanService.savePlanFromConversation(conversationId, title, messageContent, 'project')
+		notificationService.info('Plan saved successfully')
+	} catch (error) {
+		notificationService.error(`Failed to save plan: ${error}`)
+	}
+}, [conversationId, messageContent, hybridPlanService, quickInputService, notificationService])
+
+	return (
+		<button
+			onClick={handleSavePlan}
+			className="mt-2 px-3 py-1 text-xs rounded border border-void-border-2 bg-void-bg-2 text-void-fg-2 hover:bg-void-bg-3 hover:text-void-fg-1 transition-colors"
+		>
+			Save as Plan
+		</button>
+	)
+}
+
+
 export const IconWarning = ({ size, className = '' }: { size: number, className?: string }) => {
 	return (
 		<svg
@@ -249,14 +294,14 @@ const ReasoningOptionSlider = ({ featureName }: { featureName: FeatureName }) =>
 
 const nameOfChatMode = {
 	'normal': 'Chat',
-	'gather': 'Gather',
+	'plan': 'Plan',
 	'agent': 'Agent',
 	'hybrid': 'Hybrid Agent',
 }
 
 const detailOfChatMode = {
 	'normal': 'Normal chat',
-	'gather': 'Reads files, but can\'t edit',
+	'plan': 'Creates plans and prototypes',
 	'agent': 'Edits files and uses tools',
 	'hybrid': 'Cloud AI plans, Local AI codes',
 }
@@ -268,7 +313,7 @@ const ChatModeDropdown = ({ className }: { className: string }) => {
 	const voidSettingsService = accessor.get('IVoidSettingsService')
 	const settingsState = useSettingsState()
 
-	const options: ChatMode[] = useMemo(() => ['normal', 'gather', 'agent', 'hybrid'], [])
+	const options: ChatMode[] = useMemo(() => ['normal', 'plan', 'agent', 'hybrid'], [])
 
 	const onChangeOption = useCallback((newVal: ChatMode) => {
 		voidSettingsService.setGlobalSetting('chatMode', newVal)
@@ -1367,6 +1412,7 @@ const AssistantMessageComponent = ({ chatMessage, isCheckpointGhost, isCommitted
 
 	const accessor = useAccessor()
 	const chatThreadsService = accessor.get('IChatThreadService')
+	const settingsState = useSettingsState()
 
 	const reasoningStr = chatMessage.reasoning?.trim() || null
 	const hasReasoning = !!reasoningStr
@@ -1399,20 +1445,27 @@ const AssistantMessageComponent = ({ chatMessage, isCheckpointGhost, isCommitted
 			</div>
 		}
 
-		{/* assistant message */}
-		{chatMessage.displayContent &&
-			<div className={`${isCheckpointGhost ? 'opacity-50' : ''}`}>
-				<ProseWrapper>
-					<ChatMarkdownRender
-						string={chatMessage.displayContent || ''}
-						chatMessageLocation={chatMessageLocation}
-						isApplyEnabled={true}
-						isLinkDetectionEnabled={true}
-					/>
-				</ProseWrapper>
-			</div>
-		}
-	</>
+	{/* assistant message */}
+	{chatMessage.displayContent &&
+		<div className={`${isCheckpointGhost ? 'opacity-50' : ''}`}>
+			<ProseWrapper>
+				<ChatMarkdownRender
+					string={chatMessage.displayContent || ''}
+					chatMessageLocation={chatMessageLocation}
+					isApplyEnabled={true}
+					isLinkDetectionEnabled={true}
+				/>
+			</ProseWrapper>
+			{/* Save as Plan button for Plan mode */}
+			{settingsState.globalSettings.chatMode === 'plan' && isCommitted && (
+				<SaveAsPlanButton
+					messageContent={chatMessage.displayContent}
+					conversationId={thread.id}
+				/>
+			)}
+		</div>
+	}
+</>
 
 }
 
