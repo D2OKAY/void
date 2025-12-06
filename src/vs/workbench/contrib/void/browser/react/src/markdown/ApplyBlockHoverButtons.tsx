@@ -535,26 +535,14 @@ export const BlockCodeApplyWrapper = ({
 		: <span>{language}</span>
 
 
-	return <div className='border border-void-border-3 rounded overflow-hidden bg-void-bg-3 my-1'>
-		{/* header */}
-		<div className=" select-none flex justify-between items-center py-1 px-2 border-b border-void-border-3 cursor-default">
-			<div className="flex items-center">
-				<StatusIndicatorForApplyButton uri={uri} applyBoxId={applyBoxId} />
-				<span className="text-[13px] font-light text-void-fg-3">
-					{name}
-				</span>
-			</div>
-			<div className={`${canApply ? '' : 'hidden'} flex items-center gap-1`}>
-				<JumpToFileButton uri={uri} />
-				{currStreamState === 'idle-no-changes' && <CopyButton codeStr={codeStr} toolTipName='Copy' />}
-				<ApplyButtonsHTML uri={uri} applyBoxId={applyBoxId} codeStr={codeStr} language={language} />
-			</div>
+	return <div className='relative rounded my-1 group p-3' style={{ backgroundColor: '#1A1B1F' }}>
+		{/* Floating copy button - appears on hover */}
+		<div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+			<CopyButton codeStr={codeStr} toolTipName='Copy' />
 		</div>
 
 		{/* contents */}
-		<ToolChildrenWrapper>
-			{children}
-		</ToolChildrenWrapper>
+		{children}
 	</div>
 
 }
