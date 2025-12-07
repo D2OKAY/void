@@ -18,7 +18,7 @@ import { inputBackground, inputForeground } from '../../../../../../../platform/
 import { useFloating, autoUpdate, offset, flip, shift, size, autoPlacement } from '@floating-ui/react';
 import { URI } from '../../../../../../../base/common/uri.js';
 import { getBasename, getFolderName } from '../sidebar-tsx/SidebarChat.js';
-import { ChevronRight, File, Folder, FolderClosed, LucideProps } from 'lucide-react';
+import { ChevronRight, File, Folder, FolderClosed, ClipboardList, LucideProps } from 'lucide-react';
 import { StagingSelectionItem } from '../../../../common/chatThreadServiceTypes.js';
 import { DiffEditorWidget } from '../../../../../../../editor/browser/widget/diffEditor/diffEditorWidget.js';
 import { extractSearchReplaceBlocks, ExtractedSearchReplaceBlock } from '../../../../common/helpers/extractCodeFromResult.js';
@@ -282,6 +282,52 @@ const getOptionsAtPath = async (accessor: ReturnType<typeof useAccessor>, path: 
 		}
 	};
 
+	// Search for plan files in .void/plans directory
+	const searchForPlans = async (searchText: string): Promise<Option[]> => {
+		try {
+			// Get services from accessor (same pattern as other functions in this file)
+			const workspaceService = accessor.get('IWorkspaceContextService');
+			const fileService = accessor.get('IFileService');
+
+			const workspaceFolders = workspaceService.getWorkspace().folders;
+			if (workspaceFolders.length === 0) {
+				console.log('[searchForPlans] No workspace folders found');
+				return [];
+			}
+
+			// List files in .void/plans directory
+			const plansDir = URI.joinPath(workspaceFolders[0].uri, '.void', 'plans');
+			console.log('[searchForPlans] Looking in:', plansDir.fsPath);
+
+			const entries = await fileService.resolve(plansDir);
+
+			if (!entries.children) {
+				console.log('[searchForPlans] No children found in plans directory');
+				return [];
+			}
+
+			console.log('[searchForPlans] Found entries:', entries.children.length);
+
+			// Filter for .md or .json files (exclude directories), and by search text
+			const planFiles = entries.children
+				.filter(entry => !entry.isDirectory && (entry.name.endsWith('.md') || entry.name.endsWith('.json')))
+				.filter(entry => !searchText || entry.name.toLowerCase().includes(searchText.toLowerCase()));
+
+			console.log('[searchForPlans] Filtered plan files:', planFiles.length);
+
+			return planFiles.map(entry => ({
+				leafNodeType: 'File' as const,  // Treat as regular file!
+				uri: entry.resource,
+				iconInMenu: ClipboardList,
+				fullName: entry.name,
+				abbreviatedName: entry.name.replace(/\.(md|json)$/, ''),
+			}));
+		} catch (error) {
+			console.error('[searchForPlans] Error:', error);
+			return [];
+		}
+	};
+
 
 	const allOptions: Option[] = [
 		{
@@ -295,6 +341,12 @@ const getOptionsAtPath = async (accessor: ReturnType<typeof useAccessor>, path: 
 			abbreviatedName: 'folders',
 			iconInMenu: Folder,
 			generateNextOptions: async (t) => (await searchForFilesOrFolders(t, 'folders')) || [],
+		},
+		{
+			fullName: 'plans',
+			abbreviatedName: 'plans',
+			iconInMenu: ClipboardList,
+			generateNextOptions: async (t) => (await searchForPlans(t)) || [],
 		},
 	]
 

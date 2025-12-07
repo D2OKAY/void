@@ -1,8 +1,8 @@
 {
   "metadata": {
     "version": "1.0",
-    "lastUpdated": "2025-12-02T16:38:48.089Z",
-    "totalLessons": 11,
+    "lastUpdated": "2025-12-06T11:56:20.150Z",
+    "totalLessons": 12,
     "categories": [
       "hybrid-agent-architecture",
       "hybrid-agent-response-handling",
@@ -12,7 +12,8 @@
       "hybrid-agent-configuration",
       "hybrid-agent-json-parsing",
       "prompt-engineering",
-      "frontend-react"
+      "frontend-react",
+      "project"
     ],
     "lastCleanup": "2025-01-15T00:00:00.000Z"
   },
@@ -160,6 +161,17 @@
         "Tailwind",
         "UI"
       ]
+    },
+    {
+      "title": "Plans folder location",
+      "description": "The folder in which all plans are saved is /Users/dokinkim/GenAI/void/.void/plans/",
+      "category": "project",
+      "priority": "low",
+      "isGlobalCandidate": false,
+      "context": "Full path: /Users/dokinkim/GenAI/void/.void/plans/ — contains plan JSON and markdown files (e.g., 2025-12-06_Testing_md_file.md)",
+      "id": "lesson-1765022180150-syybg9oyo",
+      "dateAdded": "2025-12-06T11:56:20.150Z",
+      "timesReferenced": 0
     }
   ]
 }

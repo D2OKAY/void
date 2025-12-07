@@ -1381,7 +1381,50 @@ export const Settings = () => {
 											</div>
 										</ErrorBoundary>
 
+										{/* Plan Edit */}
+										<ErrorBoundary>
+											<div className='w-full'>
+												<h4 className={`text-base`}>Plan Edit</h4>
+												<div className='text-sm text-void-fg-3 mt-1'>Configure the AI model used when editing plans in the Plans tab. If not set, falls back to the Hybrid Planner model.</div>
 
+												<div className='my-2'>
+													{/* Plan Edit Model Label */}
+													<div className='text-xs text-void-fg-3 mb-1 mt-3'>Plan Edit Model:</div>
+													<div className='my-2'>
+														{settingsState._modelOptions.length > 0 ? (
+															<VoidCustomDropdownBox
+																options={[
+																	{ name: '(Use Hybrid Planner)', selection: { providerName: '', modelName: '' } as any },
+																	...settingsState._modelOptions
+																]}
+																selectedOption={
+																	settingsState.globalSettings.planEditModel
+																		? settingsState._modelOptions.find(opt =>
+																			opt.selection.providerName === settingsState.globalSettings.planEditModel?.providerName &&
+																			opt.selection.modelName === settingsState.globalSettings.planEditModel?.modelName
+																		)
+																		: { name: '(Use Hybrid Planner)', selection: { providerName: '', modelName: '' } as any }
+																}
+																onChangeOption={(newOption) => {
+																	if (newOption.selection.providerName === '' && newOption.selection.modelName === '') {
+																		voidSettingsService.setGlobalSetting('planEditModel', undefined);
+																	} else {
+																		voidSettingsService.setGlobalSetting('planEditModel', newOption.selection);
+																	}
+																}}
+																getOptionDisplayName={(opt) => opt.name}
+																getOptionDropdownName={(opt) => opt.selection.modelName || '(Use Hybrid Planner)'}
+																getOptionDropdownDetail={(opt) => opt.selection.providerName || 'Fallback'}
+																getOptionsEqual={(a, b) => a.selection.providerName === b.selection.providerName && a.selection.modelName === b.selection.modelName}
+																className='text-xs text-void-fg-3 bg-void-bg-1 border border-void-border-1 rounded p-1 px-2'
+															/>
+														) : (
+															<WarningBox text="Please add a model in the Models section first" />
+														)}
+													</div>
+												</div>
+											</div>
+										</ErrorBoundary>
 
 
 										{/* Tools Section */}

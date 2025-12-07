@@ -544,7 +544,21 @@ const RenderToken = ({ token, inPTag, codeURI, chatMessageLocation, tokenIdx, ..
 }
 
 
-export const ChatMarkdownRender = ({ string, inPTag = false, chatMessageLocation, ...options }: { string: string, inPTag?: boolean, codeURI?: URI, chatMessageLocation: ChatMessageLocation | undefined } & RenderTokenOptions) => {
+export const ChatMarkdownRender = ({ string: inputString, inPTag = false, chatMessageLocation, ...options }: { string: string, inPTag?: boolean, codeURI?: URI, chatMessageLocation: ChatMessageLocation | undefined } & RenderTokenOptions) => {
+	// Safety check - ensure string is actually a string
+	let string: string
+	if (typeof inputString === 'string') {
+		string = inputString
+	} else if (inputString === null || inputString === undefined) {
+		string = ''
+	} else {
+		// Convert objects/arrays to JSON string for display
+		try {
+			string = JSON.stringify(inputString, null, 2)
+		} catch {
+			string = String(inputString)
+		}
+	}
 	string = string.replaceAll('\n•', '\n\n•')
 	const tokens = marked.lexer(string); // https://marked.js.org/using_pro#renderer
 	return (

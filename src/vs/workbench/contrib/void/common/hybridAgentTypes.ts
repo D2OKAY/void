@@ -19,6 +19,33 @@ export type HybridPlan = {
 	projectPath?: string
 	conversationId?: string
 	tags?: string[]
+	// Edit mode fields
+	editSessions?: string[] // Array of sessionIds
+	lastEditedAt?: string
+	version?: number // Schema version for migration
+}
+
+// Edit session for plan editing history
+export type PlanEditSession = {
+	sessionId: string
+	planId: string
+	timestamp: string
+	messages: PlanEditMessage[]
+	changesSummary: string // What was changed
+	scope: 'project' | 'global'
+}
+
+export type PlanEditMessage = {
+	role: 'user' | 'assistant'
+	content: string
+	timestamp: string
+	toolCalls?: PlanEditToolCall[]
+}
+
+export type PlanEditToolCall = {
+	toolName: string
+	parameters: Record<string, unknown>
+	result?: { success: boolean; message?: string; error?: string }
 }
 
 export type HybridExecutionState = {

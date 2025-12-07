@@ -459,6 +459,7 @@ export type GlobalSettings = {
 	autoAcceptLLMChanges: boolean;
 	hybridPlannerModel?: ModelSelection;
 	hybridCoderModel?: ModelSelection;
+	planEditModel?: ModelSelection;
 }
 
 export const defaultGlobalSettings: GlobalSettings = {
@@ -477,6 +478,7 @@ export const defaultGlobalSettings: GlobalSettings = {
 	autoAcceptLLMChanges: false,
 	hybridPlannerModel: undefined,
 	hybridCoderModel: undefined,
+	planEditModel: undefined,
 }
 
 export type GlobalSettingName = keyof GlobalSettings
